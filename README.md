@@ -1,0 +1,7 @@
+- servidores de registro y localización estarán ubicados en el Proxy
+- escenario de llamada tendrá un único proxy SIP -> servicios de llmadas internas
+- El usuario se puede registrar desde dos terminales distintos
+- El usuario tiene un tiempo de vida
+- Mensajes: Register, Bye, Invite, ack 
+- 
+- 
