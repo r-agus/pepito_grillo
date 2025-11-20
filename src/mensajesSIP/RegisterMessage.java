@@ -1,14 +1,15 @@
 /*
- * Código de base para parsear mensajes SIP
+ * Codigo de base para parsear mensajes SIP
  * Puede ser adaptado, ampliado, modificado por el alumno
- * según sus necesidades para la práctica
+ * segun sus necesidades para la practica
  */
 package mensajesSIP;
 
 import java.util.ArrayList;
 
 /**
- *
+ * Clase que representa un mensaje SIP de tipo REGISTER
+ * 
  * @author SMA
  */
 public class RegisterMessage extends SIPMessage {
@@ -17,8 +18,10 @@ public class RegisterMessage extends SIPMessage {
     public int maxForwards;
     public String contact;
     private String authorization;
-    public String expires;
+    public int expires;
     public int contentLength;
+
+    private long expirationDeadlineMillis = 0L;
 
     public String getDestination() {
         return destination;
@@ -44,14 +47,15 @@ public class RegisterMessage extends SIPMessage {
         this.contact = contact;
     }
 
-    public String getExpires() {
+    public int getExpires() {
         return expires;
     }
 
-    public void setExpires(String expires) {
+    public synchronized void setExpires(int expires) {
         this.expires = expires;
+        this.expirationDeadlineMillis = System.currentTimeMillis() + expires * 1000L;
     }
-    
+
     public String getAuthorization() {
         return authorization;
     }
@@ -130,6 +134,18 @@ public class RegisterMessage extends SIPMessage {
 
     public void setcSeqStr(String cSeqStr) {
         this.cSeqStr = cSeqStr;
+    }
+
+    public synchronized boolean isExpired() {
+        return expires > 0 && System.currentTimeMillis() >= expirationDeadlineMillis;
+    }
+
+    public synchronized long getRemainingLifetimeMillis() {
+        if (expires <= 0) {
+            return 0L;
+        }
+        long remaining = expirationDeadlineMillis - System.currentTimeMillis();
+        return Math.max(0L, remaining);
     }
 
     @Override

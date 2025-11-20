@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import common.FindMyIPv4;
 import mensajesSIP.InviteMessage;
+import mensajesSIP.RegisterMessage;
 import mensajesSIP.SDPMessage;
 
 public class UaUserLayer {
@@ -24,15 +25,45 @@ public class UaUserLayer {
 	private String myAddress = FindMyIPv4.findMyIPv4Address().getHostAddress();
 	private int rtpPort;
 	private int listenPort;
+	private final String sipUserUri;
+	private final String sipUserName;
+	private final String sipUserDomain;
+	private final int registerExpires;
+	private final String proxyAddress;
 
 	private Process vitextClient = null;
 	private Process vitextServer = null;
 
-	public UaUserLayer(int listenPort, String proxyAddress, int proxyPort)
+	public UaUserLayer(String sipUser, int listenPort, String proxyAddress, int proxyPort, int resendTime)
 			throws SocketException, UnknownHostException {
 		this.transactionLayer = new UaTransactionLayer(listenPort, proxyAddress, proxyPort, this);
 		this.listenPort = listenPort;
 		this.rtpPort = listenPort + 1;
+		this.proxyAddress = proxyAddress;
+		this.sipUserUri = normalizeSipUri(sipUser);
+		this.sipUserName = extractUser(this.sipUserUri);
+		this.sipUserDomain = extractDomain(this.sipUserUri);
+		this.registerExpires = resendTime;
+	}
+
+	public void registerWithProxy() throws IOException {
+		RegisterMessage registerMessage = new RegisterMessage();
+		registerMessage.setDestination("sip:" + sipUserDomain);
+		registerMessage.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
+		registerMessage.setMaxForwards(70);
+		registerMessage.setToName(sipUserName);
+		registerMessage.setToUri(sipUserUri);
+		registerMessage.setFromName(sipUserName);
+		registerMessage.setFromUri(sipUserUri);
+		registerMessage.setCallId(UUID.randomUUID().toString());
+		registerMessage.setcSeqNumber("1");
+		registerMessage.setcSeqStr("REGISTER");
+		registerMessage.setContact(buildContactUri());
+		registerMessage.setExpires(registerExpires);
+		registerMessage.setContentLength(0);
+
+		transactionLayer.register(registerMessage);
+		System.out.println("REGISTER sent for " + sipUserUri + " (Expires=" + registerExpires + ")");
 	}
 
 	public void onInviteReceived(InviteMessage inviteMessage) throws IOException {
@@ -62,11 +93,11 @@ public class UaUserLayer {
 	private void prompt() {
 		System.out.println("");
 		switch (state) {
-		case IDLE:
-			promptIdle();
-			break;
-		default:
-			throw new IllegalStateException("Unexpected state: " + state);
+			case IDLE:
+				promptIdle();
+				break;
+			default:
+				throw new IllegalStateException("Unexpected state: " + state);
 		}
 		System.out.print("> ");
 	}
@@ -86,7 +117,7 @@ public class UaUserLayer {
 	private void commandInvite(String line) throws IOException {
 		stopVitextServer();
 		stopVitextClient();
-		
+
 		System.out.println("Inviting...");
 
 		runVitextClient();
@@ -128,13 +159,49 @@ public class UaUserLayer {
 	}
 
 	private void runVitextServer() throws IOException {
-		vitextServer = Runtime.getRuntime().exec("xterm -iconic -e vitext/vitextserver -r 10 -p 5000 vitext/1.vtx 239.1.2.3");
+		vitextServer = Runtime.getRuntime()
+				.exec("xterm -iconic -e vitext/vitextserver -r 10 -p 5000 vitext/1.vtx 239.1.2.3");
 	}
 
 	private void stopVitextServer() {
 		if (vitextServer != null) {
 			vitextServer.destroy();
 		}
+	}
+
+	private String normalizeSipUri(String sipUser) {
+		if (sipUser == null || sipUser.trim().isEmpty()) {
+			throw new IllegalArgumentException("sip_user must not be empty");
+		}
+		String trimmed = sipUser.trim();
+		String normalized = trimmed.startsWith("sip:") ? trimmed : "sip:" + trimmed;
+		if (!normalized.contains("@")) {
+			normalized = normalized + "@" + proxyAddress;
+		}
+		return normalized;
+	}
+
+	private String extractUser(String sipUri) {
+		String bare = stripScheme(sipUri);
+		int atIdx = bare.indexOf('@');
+		return atIdx >= 0 ? bare.substring(0, atIdx) : bare;
+	}
+
+	private String extractDomain(String sipUri) {
+		String bare = stripScheme(sipUri);
+		int atIdx = bare.indexOf('@');
+		if (atIdx >= 0 && atIdx < bare.length() - 1) {
+			return bare.substring(atIdx + 1);
+		}
+		return proxyAddress;
+	}
+
+	private String stripScheme(String sipUri) {
+		return sipUri.startsWith("sip:") ? sipUri.substring(4) : sipUri;
+	}
+
+	private String buildContactUri() {
+		return extractUser(sipUserUri) + "@" + myAddress + ":" + listenPort;
 	}
 
 }
