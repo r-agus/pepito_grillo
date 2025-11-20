@@ -12,6 +12,7 @@ import common.FindMyIPv4;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.RegisterMessage;
 import mensajesSIP.SDPMessage;
+import mensajesSIP.SIPMessage;
 
 public class UaUserLayer {
 	private static final int IDLE = 0;
@@ -26,45 +27,90 @@ public class UaUserLayer {
 	private int rtpPort;
 	private int listenPort;
 	private final String sipUserUri;
-	private final String sipUserName;
-	private final String sipUserDomain;
-	private final int registerExpires;
-	private final String proxyAddress;
+        private final String sipUserName;
+        private final String sipUserDomain;
+        private final int registerExpires;
+        private final String proxyAddress;
+
+        private RegisterMessage lastRegisterMessage;
+        private volatile boolean registerResponseReceived = false;
+        private Thread registerRetryThread;
 
 	private Process vitextClient = null;
 	private Process vitextServer = null;
 
-	public UaUserLayer(String sipUser, int listenPort, String proxyAddress, int proxyPort, int resendTime)
-			throws SocketException, UnknownHostException {
-		this.transactionLayer = new UaTransactionLayer(listenPort, proxyAddress, proxyPort, this);
+        public UaUserLayer(String sipUser, int listenPort, String proxyAddress, int proxyPort, int resendTime)
+                        throws SocketException, UnknownHostException {
+                this.transactionLayer = new UaTransactionLayer(listenPort, proxyAddress, proxyPort, this);
 		this.listenPort = listenPort;
 		this.rtpPort = listenPort + 1;
 		this.proxyAddress = proxyAddress;
 		this.sipUserUri = normalizeSipUri(sipUser);
-		this.sipUserName = extractUser(this.sipUserUri);
-		this.sipUserDomain = extractDomain(this.sipUserUri);
-		this.registerExpires = resendTime;
-	}
+                this.sipUserName = extractUser(this.sipUserUri);
+                this.sipUserDomain = extractDomain(this.sipUserUri);
+                this.registerExpires = resendTime;
+        }
 
-	public void registerWithProxy() throws IOException {
-		RegisterMessage registerMessage = new RegisterMessage();
-		registerMessage.setDestination("sip:" + sipUserDomain);
-		registerMessage.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
-		registerMessage.setMaxForwards(70);
-		registerMessage.setToName(sipUserName);
-		registerMessage.setToUri(sipUserUri);
-		registerMessage.setFromName(sipUserName);
-		registerMessage.setFromUri(sipUserUri);
-		registerMessage.setCallId(UUID.randomUUID().toString());
-		registerMessage.setcSeqNumber("1");
-		registerMessage.setcSeqStr("REGISTER");
-		registerMessage.setContact(buildContactUri());
-		registerMessage.setExpires(registerExpires);
-		registerMessage.setContentLength(0);
+        public void registerWithProxy() throws IOException {
+                RegisterMessage registerMessage = new RegisterMessage();
+                registerMessage.setDestination("sip:" + sipUserDomain);
+                registerMessage.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
+                registerMessage.setMaxForwards(70);
+                registerMessage.setToName(sipUserName);
+                registerMessage.setToUri(sipUserUri);
+                registerMessage.setFromName(sipUserName);
+                registerMessage.setFromUri(sipUserUri);
+                registerMessage.setCallId(UUID.randomUUID().toString());
+                registerMessage.setcSeqNumber("1");
+                registerMessage.setcSeqStr("REGISTER");
+                registerMessage.setContact(buildContactUri());
+                registerMessage.setExpires(registerExpires);
+                registerMessage.setContentLength(0);
 
-		transactionLayer.register(registerMessage);
-		System.out.println("REGISTER sent for " + sipUserUri + " (Expires=" + registerExpires + ")");
-	}
+                this.lastRegisterMessage = registerMessage;
+                this.registerResponseReceived = false;
+
+                transactionLayer.register(registerMessage);
+                System.out.println("REGISTER sent for " + sipUserUri + " (Expires=" + registerExpires + ")");
+                startRegisterRetryLoop();
+        }
+
+        private synchronized void startRegisterRetryLoop() {
+                if (registerRetryThread != null && registerRetryThread.isAlive()) {
+                        return;
+                }
+
+                registerRetryThread = new Thread(() -> {
+                        while (!registerResponseReceived) {
+                                try {
+                                        Thread.sleep(2000);
+                                        if (registerResponseReceived) {
+                                                break;
+                                        }
+                                        if (lastRegisterMessage != null) {
+                                                System.out.println("No REGISTER response received, resending...");
+                                                transactionLayer.register(lastRegisterMessage);
+                                        }
+                                } catch (InterruptedException e) {
+                                        Thread.currentThread().interrupt();
+                                        break;
+                                } catch (IOException e) {
+                                        System.err.println("Failed to resend REGISTER: " + e.getMessage());
+                                }
+                        }
+                });
+
+                registerRetryThread.setDaemon(true);
+                registerRetryThread.start();
+        }
+
+        public void onRegisterResponse(SIPMessage sipMessage) {
+                registerResponseReceived = true;
+                if (registerRetryThread != null) {
+                        registerRetryThread.interrupt();
+                }
+                System.out.println("Received response for REGISTER: " + sipMessage.getClass().getSimpleName());
+        }
 
 	public void onInviteReceived(InviteMessage inviteMessage) throws IOException {
 		System.out.println("Received INVITE from " + inviteMessage.getFromName());

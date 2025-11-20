@@ -24,6 +24,14 @@ public abstract class SIPMessage {
     protected String callId;
     protected String cSeqNumber;
     protected String cSeqStr;
+
+    public String getcSeqNumber() {
+        return cSeqNumber;
+    }
+
+    public String getcSeqStr() {
+        return cSeqStr;
+    }
     
 /**
  * Convierte el mensaje en un String. Para ello concatena la informaci�n de las cabeceras del mensaje.

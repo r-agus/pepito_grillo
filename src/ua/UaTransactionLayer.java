@@ -20,21 +20,28 @@ public class UaTransactionLayer {
 		this.transportLayer = new UaTransportLayer(listenPort, proxyAddress, proxyPort, this);
 	}
 
-	public void onMessageReceived(SIPMessage sipMessage) throws IOException {
-		if (sipMessage instanceof InviteMessage) {
-			InviteMessage inviteMessage = (InviteMessage) sipMessage;
-			switch (state) {
-			case IDLE:
-				userLayer.onInviteReceived(inviteMessage);
-				break;
-			default:
-				System.err.println("Unexpected message, throwing away");
-				break;
-			}
-		} else {
-			System.err.println("Unexpected message, throwing away");
-		}
-	}
+        public void onMessageReceived(SIPMessage sipMessage) throws IOException {
+                if (sipMessage instanceof InviteMessage) {
+                        InviteMessage inviteMessage = (InviteMessage) sipMessage;
+                        switch (state) {
+                        case IDLE:
+                                userLayer.onInviteReceived(inviteMessage);
+                                break;
+                        default:
+                                System.err.println("Unexpected message, throwing away");
+                                break;
+                        }
+                } else if (isResponseToRegister(sipMessage)) {
+                        userLayer.onRegisterResponse(sipMessage);
+                } else {
+                        System.err.println("Unexpected message, throwing away");
+                }
+        }
+
+        private boolean isResponseToRegister(SIPMessage sipMessage) {
+                String cSeqStr = sipMessage.getcSeqStr();
+                return cSeqStr != null && "REGISTER".equalsIgnoreCase(cSeqStr);
+        }
 
 	public void startListeningNetwork() {
 		transportLayer.startListening();
