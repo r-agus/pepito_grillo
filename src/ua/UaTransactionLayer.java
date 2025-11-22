@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.net.SocketException;
 
 import mensajesSIP.InviteMessage;
+import mensajesSIP.NotFoundMessage;
+import mensajesSIP.OKMessage;
 import mensajesSIP.RegisterMessage;
 import mensajesSIP.SIPMessage;
 
@@ -33,10 +35,13 @@ public class UaTransactionLayer {
                     break;
             }
         } else if (isResponseToRegister(sipMessage)) {
-            userLayer.onRegisterResponse(sipMessage);
+            if (sipMessage instanceof OKMessage) {
+                userLayer.onRegisterResponse(sipMessage);
+            } else if (sipMessage instanceof NotFoundMessage) {
+                userLayer.onNotFoundResponse(sipMessage);
+            }
         } else {
-            System.err
-                    .println("Unexpected message (not instance of InviteMessage or REGISTER response), throwing away");
+            System.err.println("Unexpected message (not instance of InviteMessage or REGISTER response), throwing away");
             System.err.println("Message: " + sipMessage);
         }
     }
@@ -56,5 +61,9 @@ public class UaTransactionLayer {
 
     public void register(RegisterMessage registerMessage) throws IOException {
         transportLayer.sendToProxy(registerMessage);
+    }
+
+    public void terminate() {
+        transportLayer.terminate();
     }
 }

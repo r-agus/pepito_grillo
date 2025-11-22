@@ -39,6 +39,8 @@ public class UaUserLayer {
     private Process vitextClient = null;
     private Process vitextServer = null;
 
+    private volatile boolean shouldExit = false;
+
     public UaUserLayer(String sipUser, int listenPort, String proxyAddress, int proxyPort, int resendTime)
             throws SocketException, UnknownHostException {
         this.transactionLayer = new UaTransactionLayer(listenPort, proxyAddress, proxyPort, this);
@@ -112,6 +114,15 @@ public class UaUserLayer {
         System.out.println("Received response for REGISTER: " + sipMessage.getClass().getSimpleName());
     }
 
+    public void onNotFoundResponse(SIPMessage sipMessage) {
+        registerResponseReceived = true;
+        if (registerRetryThread != null) {
+            registerRetryThread.interrupt();
+        }
+        shouldExit = true;
+        terminate("Received 404 Not Found for REGISTER");
+    }
+
     public void onInviteReceived(InviteMessage inviteMessage) throws IOException {
         System.out.println("Received INVITE from " + inviteMessage.getFromName());
         runVitextServer();
@@ -123,7 +134,7 @@ public class UaUserLayer {
 
     public void startListeningKeyboard() {
         try (Scanner scanner = new Scanner(System.in)) {
-            while (true) {
+            while (!shouldExit) {
                 prompt();
                 String line = scanner.nextLine();
                 if (!line.isEmpty()) {
@@ -250,4 +261,14 @@ public class UaUserLayer {
         return extractUser(sipUserUri) + "@" + myAddress + ":" + listenPort;
     }
 
+    private void terminate(String reason) {
+        System.err.println("Terminating UA: " + reason);
+        terminate();
+    }
+
+    private void terminate() {
+        transactionLayer.terminate();
+        stopVitextClient();
+        stopVitextServer();
+    }
 }
