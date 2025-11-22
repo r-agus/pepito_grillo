@@ -8,52 +8,53 @@ import mensajesSIP.RegisterMessage;
 import mensajesSIP.SIPMessage;
 
 public class UaTransactionLayer {
-	private static final int IDLE = 0;
-	private int state = IDLE;
+    private static final int IDLE = 0;
+    private int state = IDLE;
 
-	private UaUserLayer userLayer;
-	private UaTransportLayer transportLayer;
+    private UaUserLayer userLayer;
+    private UaTransportLayer transportLayer;
 
-	public UaTransactionLayer(int listenPort, String proxyAddress, int proxyPort, UaUserLayer userLayer)
-			throws SocketException {
-		this.userLayer = userLayer;
-		this.transportLayer = new UaTransportLayer(listenPort, proxyAddress, proxyPort, this);
-	}
+    public UaTransactionLayer(int listenPort, String proxyAddress, int proxyPort, UaUserLayer userLayer)
+            throws SocketException {
+        this.userLayer = userLayer;
+        this.transportLayer = new UaTransportLayer(listenPort, proxyAddress, proxyPort, this);
+    }
 
-        public void onMessageReceived(SIPMessage sipMessage) throws IOException {
-                if (sipMessage instanceof InviteMessage) {
-                        InviteMessage inviteMessage = (InviteMessage) sipMessage;
-                        switch (state) {
-                        case IDLE:
-                                userLayer.onInviteReceived(inviteMessage);
-                                break;
-                        default:
-                                System.err.println("Unexpected message at state " + state + ", throwing away");
-                                System.err.println("Message: " + sipMessage);
-                                break;
-                        }
-                } else if (isResponseToRegister(sipMessage)) {
-                        userLayer.onRegisterResponse(sipMessage);
-                } else {
-                        System.err.println("Unexpected message (not instance of InviteMessage or REGISTER response), throwing away");
-                        System.err.println("Message: " + sipMessage);
-                }
+    public void onMessageReceived(SIPMessage sipMessage) throws IOException {
+        if (sipMessage instanceof InviteMessage) {
+            InviteMessage inviteMessage = (InviteMessage) sipMessage;
+            switch (state) {
+                case IDLE:
+                    userLayer.onInviteReceived(inviteMessage);
+                    break;
+                default:
+                    System.err.println("Unexpected message at state " + state + ", throwing away");
+                    System.err.println("Message: " + sipMessage);
+                    break;
+            }
+        } else if (isResponseToRegister(sipMessage)) {
+            userLayer.onRegisterResponse(sipMessage);
+        } else {
+            System.err
+                    .println("Unexpected message (not instance of InviteMessage or REGISTER response), throwing away");
+            System.err.println("Message: " + sipMessage);
         }
+    }
 
-        private boolean isResponseToRegister(SIPMessage sipMessage) {
-                String cSeqStr = sipMessage.getcSeqStr();
-                return cSeqStr != null && "REGISTER".equalsIgnoreCase(cSeqStr);
-        }
+    private boolean isResponseToRegister(SIPMessage sipMessage) {
+        String cSeqStr = sipMessage.getcSeqStr();
+        return cSeqStr != null && "REGISTER".equalsIgnoreCase(cSeqStr);
+    }
 
-	public void startListeningNetwork() {
-		transportLayer.startListening();
-	}
+    public void startListeningNetwork() {
+        transportLayer.startListening();
+    }
 
-	public void call(InviteMessage inviteMessage) throws IOException {
-		transportLayer.sendToProxy(inviteMessage);
-	}
+    public void call(InviteMessage inviteMessage) throws IOException {
+        transportLayer.sendToProxy(inviteMessage);
+    }
 
-	public void register(RegisterMessage registerMessage) throws IOException {
-		transportLayer.sendToProxy(registerMessage);
-	}
+    public void register(RegisterMessage registerMessage) throws IOException {
+        transportLayer.sendToProxy(registerMessage);
+    }
 }
