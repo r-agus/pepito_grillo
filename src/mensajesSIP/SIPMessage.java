@@ -1,7 +1,7 @@
 /*
- * C�digo de base para parsear mensajes SIP
+ * Codigo de base para parsear mensajes SIP
  * Puede ser adaptado, ampliado, modificado por el alumno
- * seg�n sus necesidades para la pr�ctica
+ * segun sus necesidades para la practica
  */
 package mensajesSIP;
 
@@ -24,9 +24,17 @@ public abstract class SIPMessage {
     protected String callId;
     protected String cSeqNumber;
     protected String cSeqStr;
+
+    public String getcSeqNumber() {
+        return cSeqNumber;
+    }
+
+    public String getcSeqStr() {
+        return cSeqStr;
+    }
     
 /**
- * Convierte el mensaje en un String. Para ello concatena la informaci�n de las cabeceras del mensaje.
+ * Convierte el mensaje en un String. Para ello concatena la informaciï¿½n de las cabeceras del mensaje.
  * 
  * @return      el mensaje como String.
  */
@@ -34,9 +42,9 @@ public abstract class SIPMessage {
     public abstract String toStringMessage();
     
 /**
- * Convierte el mensaje en un String. Para ello concatena la informaci�n de las cabeceras del mensaje.
- * <p> N�tese que es un m�todo de clase o m�todo est�tico de cara a poderse invocar sobre la propia clase SIPMessage. Este m�todo se usa como factor�a para generar los diferentes mensajes SIP a partir de lo recibido de la red.
- * <p> En realidad, como los mensajes generados heradar�n de la clase SIPMessage, al invocar a parseMessage tendremos que hacer un casting a la clase apropiada.
+ * Convierte el mensaje en un String. Para ello concatena la informaciï¿½n de las cabeceras del mensaje.
+ * <p> Nï¿½tese que es un mï¿½todo de clase o mï¿½todo estï¿½tico de cara a poderse invocar sobre la propia clase SIPMessage. Este mï¿½todo se usa como factorï¿½a para generar los diferentes mensajes SIP a partir de lo recibido de la red.
+ * <p> En realidad, como los mensajes generados heradarï¿½n de la clase SIPMessage, al invocar a parseMessage tendremos que hacer un casting a la clase apropiada.
  * 
  * @return      SIPMessage el mensaje parseado. 
  */
@@ -141,7 +149,7 @@ public abstract class SIPMessage {
             register.setcSeqNumber(cSeq[0]);
             register.setcSeqStr(cSeq[1]);
             register.setContact(contact);
-            register.setExpires(expires);
+            register.setExpires(Integer.parseInt(expires));
             register.setAuthorization(authorization);
             
             return register;
@@ -363,7 +371,7 @@ public abstract class SIPMessage {
     
     
     /**
-     * Parsea cada una de las l�neas de Via del mensaje recibido, les quita la parte de Via: SIP/2.0/UDP y el resultado lo devuelve como String para que pueda ser a�adido al ArrayList de las Vias del mensaje
+     * Parsea cada una de las lï¿½neas de Via del mensaje recibido, les quita la parte de Via: SIP/2.0/UDP y el resultado lo devuelve como String para que pueda ser aï¿½adido al ArrayList de las Vias del mensaje
  	* 
      * @param via en el formato red recibido del mensaje SIP
      * @return 
@@ -418,13 +426,14 @@ public abstract class SIPMessage {
      * @return 
      */
     private static String parseContact(String contact) throws SIPException{
-        Pattern pattern = Pattern.compile("Contact: <sip:([\\w\\.\\:\\;\\-\\=]+)>");
+        Pattern pattern = Pattern.compile("Contact:\\s*<sip:([^>]+)>");
         //Matcher matcher = pattern.matcher(contact.split(";")[0]+">");
         Matcher matcher = pattern.matcher(contact);
         if(matcher.matches()){
             return  matcher.group(1);
         }
         else{
+            System.out.println("Contact line: " + contact);
             throw new SIPException("Incorrect CONTACT format");
         }
     }

@@ -1,11 +1,12 @@
 /*
- * CÛdigo de base para parsear mensajes SIP
+ * C√≥digo de base para parsear mensajes SIP
  * Puede ser adaptado, ampliado, modificado por el alumno
- * seg˙n sus necesidades para la pr·ctica
+ * seg√∫n sus necesidades para la pr√°ctica
  */
 package mensajesSIP;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -19,6 +20,18 @@ public class OKMessage extends SIPMessage {
     private String expires;
     private int contentLength;
     SDPMessage sdp;
+
+    public OKMessage(List<String> vias, String toName, String toUri, String fromName, String fromUri, String callId, String cSeqNumber, String cSeqStr) {
+        this.vias = new ArrayList<>(vias);
+        this.toName = toName;
+        this.toUri = toUri;
+        this.fromName = fromName;
+        this.fromUri = fromUri;
+        this.callId = callId;
+        this.cSeqNumber = cSeqNumber;
+        this.cSeqStr = cSeqStr;
+        this.contentLength = 0;
+    }
 
     public void addVia(String via) {
         this.vias.add(0, via);
@@ -104,7 +117,7 @@ public class OKMessage extends SIPMessage {
     }
 
 /**
- * Recupera el recordRoute. El recordRoute ser· un String que contiene la concatenaciÛn de los puntos intermedios de la llamada por los que tienen que pasar los futuros mensajes. Ser· una lista separada por comas. El API lo gestiona como un String sin separar cada uno de los puntos intermedios que se incluyen.
+ * Recupera el recordRoute. El recordRoute ser√° un String que contiene la concatenaci√≥n de los puntos intermedios de la llamada por los que tienen que pasar los futuros mensajes. Ser√° una lista separada por comas. El API lo gestiona como un String sin separar cada uno de los puntos intermedios que se incluyen.
  * 
  * @return      el recordRoute
  */
@@ -114,7 +127,7 @@ public class OKMessage extends SIPMessage {
     }
 
 /**
- * Establece el recordRoute. El recordRoute ser· un String que contiene la concatenaciÛn de los puntos intermedios de la llamada por los que tienen que pasar los futuros mensajes. Ser· una lista separada por comas. El API lo gestiona como un String sin separar cada uno de los puntos intermedios que se incluyen.
+ * Establece el recordRoute. El recordRoute ser√° un String que contiene la concatenaci√≥n de los puntos intermedios de la llamada por los que tienen que pasar los futuros mensajes. Ser√° una lista separada por comas. El API lo gestiona como un String sin separar cada uno de los puntos intermedios que se incluyen.
  * 
  * @param 	recordRoute
  */

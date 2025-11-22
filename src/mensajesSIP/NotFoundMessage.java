@@ -1,11 +1,12 @@
 /*
- * Código de base para parsear mensajes SIP
+ * CÃ³digo de base para parsear mensajes SIP
  * Puede ser adaptado, ampliado, modificado por el alumno
- * según sus necesidades para la práctica
+ * segÃºn sus necesidades para la prÃ¡ctica
  */
 package mensajesSIP;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -17,12 +18,28 @@ public class NotFoundMessage extends SIPMessage {
     private String expires;
     private int contentLength;
 
+    public NotFoundMessage() {
+        this.contentLength = 0;
+    }
+
+    public NotFoundMessage(List<String> vias, String toName, String toUri, String fromName, String fromUri, String callId, String cSeqNumber, String cSeqStr) {
+        this.vias = new ArrayList<>(vias);
+        this.toName = toName;
+        this.toUri = toUri;
+        this.fromName = fromName;
+        this.fromUri = fromUri;
+        this.callId = callId;
+        this.cSeqNumber = cSeqNumber;
+        this.cSeqStr = cSeqStr;
+        this.contentLength = 0;
+    }
+
     public ArrayList<String> getVias() {
         return vias;
     }
 
-    public void setVias(ArrayList<String> vias) {
-        this.vias = vias;
+    public void setVias(List<String> vias) {
+        this.vias = new ArrayList<>(vias);
     }
 
     public String getToName() {

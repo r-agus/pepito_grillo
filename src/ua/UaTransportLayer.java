@@ -16,6 +16,7 @@ public class UaTransportLayer {
 	private int proxyPort;
 	private DatagramSocket socket;
 	private UaTransactionLayer transactionLayer;
+	private volatile boolean terminate = false;
 
 	public UaTransportLayer(int listenPort, String proxyAddress, int proxyPort, UaTransactionLayer transactionLayer)
 			throws SocketException {
@@ -42,7 +43,7 @@ public class UaTransportLayer {
 
 	public void startListening() {
 		System.out.println("Listening at " + listenPort + "...");
-		while (true) {
+		while (!terminate) {
 			try {
 				byte[] buf = new byte[BUFSIZE];
 				DatagramPacket packet = new DatagramPacket(buf, buf.length);
@@ -57,4 +58,8 @@ public class UaTransportLayer {
 		}
 	}
 
+	public void terminate() {
+		terminate = true;
+		socket.close();
+	}
 }

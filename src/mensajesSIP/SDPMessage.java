@@ -1,7 +1,7 @@
 /*
- * Código de base para parsear mensajes SIP
+ * CÃ³digo de base para parsear mensajes SIP
  * Puede ser adaptado, ampliado, modificado por el alumno
- * según sus necesidades para la práctica
+ * segÃºn sus necesidades para la prÃ¡ctica
  */
 package mensajesSIP;
 
@@ -75,7 +75,7 @@ public class SDPMessage {
     }
 
 /**
- * Convierte el mensaje en un String. Para ello concatena la información de las opciones c y m con la IP, puerto y opciones de los atributos de la clase.
+ * Convierte el mensaje en un String. Para ello concatena la informaciÃ³n de las opciones c y m con la IP, puerto y opciones de los atributos de la clase.
  * 
  * @return      el mensaje como String.
  */
