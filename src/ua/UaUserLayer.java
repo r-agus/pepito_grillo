@@ -226,7 +226,9 @@ public class UaUserLayer {
         vitextServer = TerminalLauncher.startInTerminal(
             Arrays.asList(
                 "vitext/vitextserver",
+                "-r", "5",
                 "-p", "5000",
+                "vitext/1.vtx",
                 "239.1.2.3"
             )
         );

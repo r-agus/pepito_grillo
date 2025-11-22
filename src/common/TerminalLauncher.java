@@ -7,7 +7,7 @@ import java.util.List;
 public class TerminalLauncher {
     private static final List<List<String>> LINUX_TERMINALS = List.of(
             List.of("x-terminal-emulator"),
-            // List.of("ptyxis"),
+            List.of("ptyxis", "-e"),
             List.of("gnome-terminal", "--"),
             List.of("konsole", "-e"),
             List.of("xfce4-terminal", "-e"),
