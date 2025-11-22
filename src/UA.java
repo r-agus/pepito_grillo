@@ -12,9 +12,9 @@ public class UA {
         int listenPort = Integer.parseInt(args[1]);
         String proxyAddress = args[2];
         int proxyPort = Integer.parseInt(args[3]);
-        int tiempoRegistro = args.length == 5 ? Integer.parseInt(args[4]) : 2000;
+        int registerExpires = args.length == 5 ? Integer.parseInt(args[4]) : 2000;
 
-        UaUserLayer userLayer = new UaUserLayer(sip_user, listenPort, proxyAddress, proxyPort, tiempoRegistro);
+        UaUserLayer userLayer = new UaUserLayer(sip_user, listenPort, proxyAddress, proxyPort, registerExpires);
 
         new Thread() {
             @Override
