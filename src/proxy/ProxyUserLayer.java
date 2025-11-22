@@ -28,12 +28,6 @@ public class ProxyUserLayer {
 
         SIPMessage response;
 
-        if (registeredUsers.contains(fromName)) {
-            // User is already registered. Ignore the REGISTER request.
-            System.out.println("User " + fromName + " is already registered.");
-            return;
-        }
-
         if (!allowedUsers.contains(fromName)) {
             System.out.println("User " + fromName + " is not allowed to register.");
             response = registerMessage.createNotFoundResponse();
