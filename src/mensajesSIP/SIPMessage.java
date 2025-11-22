@@ -426,13 +426,14 @@ public abstract class SIPMessage {
      * @return 
      */
     private static String parseContact(String contact) throws SIPException{
-        Pattern pattern = Pattern.compile("Contact: <sip:([\\w\\.\\:\\;\\-\\=]+)>");
+        Pattern pattern = Pattern.compile("Contact:\\s*<sip:([^>]+)>");
         //Matcher matcher = pattern.matcher(contact.split(";")[0]+">");
         Matcher matcher = pattern.matcher(contact);
         if(matcher.matches()){
             return  matcher.group(1);
         }
         else{
+            System.out.println("Contact line: " + contact);
             throw new SIPException("Incorrect CONTACT format");
         }
     }

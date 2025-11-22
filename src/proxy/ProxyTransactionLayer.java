@@ -26,11 +26,13 @@ public class ProxyTransactionLayer {
 				userLayer.onInviteReceived(inviteMessage);
 				break;
 			default:
-				System.err.println("Unexpected message, throwing away");
+				System.err.println("Unexpected message at state " + state + ", throwing away");
+				System.err.println("Message: " + sipMessage);
 				break;
 			}
 		} else {
-			System.err.println("Unexpected message, throwing away");
+			System.err.println("Unexpected message (not instance of InviteMessage), throwing away");
+			System.err.println("Message: " + sipMessage);
 		}
 	}
 
