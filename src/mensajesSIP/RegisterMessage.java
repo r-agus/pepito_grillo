@@ -175,4 +175,37 @@ public class RegisterMessage extends SIPMessage {
 
         return register;
     }
+
+    public OKMessage createOKResponse() {
+        OKMessage okMessage = new OKMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr
+        );
+        okMessage.setContact(this.contact);
+        okMessage.setExpires(String.valueOf(this.expires));
+        okMessage.setContentLength(0);
+        return okMessage;
+    }
+
+    public NotFoundMessage createNotFoundResponse() {
+        NotFoundMessage notFoundMessage = new NotFoundMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr
+        );
+        notFoundMessage.setContact(this.contact);
+        notFoundMessage.setContentLength(0);
+        return notFoundMessage;
+    }
 }
