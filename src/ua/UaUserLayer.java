@@ -36,6 +36,7 @@ public class UaUserLayer {
     private RegisterMessage lastRegisterMessage;
     private volatile boolean registerResponseReceived = false;
     private Thread registerRetryThread;
+    private Thread registerExpiryThread;
 
     private Process vitextClient = null;
     private Process vitextServer = null;
@@ -73,8 +74,6 @@ public class UaUserLayer {
         this.lastRegisterMessage = registerMessage;
         this.registerResponseReceived = false;
 
-        transactionLayer.register(registerMessage);
-        System.out.println("REGISTER sent for " + sipUserUri + " (Expires=" + registerExpires + ")");
         startRegisterRetryLoop();
     }
 
@@ -82,10 +81,11 @@ public class UaUserLayer {
         if (registerRetryThread != null && registerRetryThread.isAlive()) {
             return;
         }
-
+        
         registerRetryThread = new Thread(() -> {
             while (!registerResponseReceived) {
                 try {
+                    transactionLayer.register(lastRegisterMessage);
                     Thread.sleep(2000);
                     if (registerResponseReceived) {
                         break;
@@ -103,8 +103,22 @@ public class UaUserLayer {
             }
         });
 
+        registerExpiryThread = new Thread(() -> {
+            try {
+                Thread.sleep(registerExpires);
+                // We should start registerRetryThread again
+                registerResponseReceived = false;
+                startRegisterRetryLoop();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
         registerRetryThread.setDaemon(true);
         registerRetryThread.start();
+
+        registerExpiryThread.setDaemon(true);
+        registerExpiryThread.start();
     }
 
     public void onRegisterResponse(SIPMessage sipMessage) {
@@ -112,7 +126,7 @@ public class UaUserLayer {
         if (registerRetryThread != null) {
             registerRetryThread.interrupt();
         }
-        System.out.println("Received response for REGISTER: " + sipMessage.getClass().getSimpleName());
+        System.out.println("[DEBUG] Received response for REGISTER: " + sipMessage.getClass().getSimpleName());
     }
 
     public void onNotFoundResponse(SIPMessage sipMessage) {

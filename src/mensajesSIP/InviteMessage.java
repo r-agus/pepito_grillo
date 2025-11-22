@@ -5,11 +5,7 @@
  */
 package mensajesSIP;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -426,5 +422,63 @@ public class InviteMessage extends SIPMessage {
         invite += sdp.toStringMessage();
 
         return invite;
+    }
+
+    public BusyHereMessage createBusyHereResponse() {
+        BusyHereMessage busyHereMessage = new BusyHereMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr
+        );
+        return busyHereMessage;
+    }
+
+    public TryingMessage createTryingResponse() {
+        TryingMessage tryingMessage = new TryingMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr
+        );
+        return tryingMessage;
+    }
+
+    public OKMessage createOKResponse() {
+        OKMessage okMessage = new OKMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr
+        );
+        okMessage.setContact(this.contact);
+        return okMessage;
+    }
+
+    public NotFoundMessage createNotFoundResponse() {
+        NotFoundMessage notFoundMessage = new NotFoundMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr
+        );
+        notFoundMessage.setContact(this.contact);
+        return notFoundMessage;
     }
 }

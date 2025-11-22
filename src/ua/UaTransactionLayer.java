@@ -10,8 +10,8 @@ import mensajesSIP.RegisterMessage;
 import mensajesSIP.SIPMessage;
 
 public class UaTransactionLayer {
-    private static final int IDLE = 0;
-    private int state = IDLE;
+    private enum State { IDLE, CALLING, RINGING, IN_CALL }
+    private State state = State.IDLE;
 
     private UaUserLayer userLayer;
     private UaTransportLayer transportLayer;
@@ -25,15 +25,26 @@ public class UaTransactionLayer {
     public void onMessageReceived(SIPMessage sipMessage) throws IOException {
         if (sipMessage instanceof InviteMessage) {
             InviteMessage inviteMessage = (InviteMessage) sipMessage;
+            SIPMessage response;
             switch (state) {
                 case IDLE:
+                    response = inviteMessage.createTryingResponse();
+                    state = State.RINGING;
                     userLayer.onInviteReceived(inviteMessage);
                     break;
+                case CALLING:
+                case RINGING:
+                case IN_CALL:
+                    System.err.println("Busy state " + state + ", sending 486 Busy Here");
+                    response = inviteMessage.createBusyHereResponse();
+                    break;
                 default:
+                    response = inviteMessage.createNotFoundResponse();
                     System.err.println("Unexpected message at state " + state + ", throwing away");
                     System.err.println("Message: " + sipMessage);
                     break;
-            }
+                }
+                transportLayer.sendToProxy(response);
         } else if (isResponseToRegister(sipMessage)) {
             if (sipMessage instanceof OKMessage) {
                 userLayer.onRegisterResponse(sipMessage);

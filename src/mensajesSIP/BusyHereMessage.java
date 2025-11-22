@@ -17,6 +17,24 @@ public class BusyHereMessage extends SIPMessage {
 
     private int contentLength;
 
+    public BusyHereMessage() {
+        this.vias = new ArrayList<String>();
+        this.contentLength = 0;
+    }
+
+    public BusyHereMessage(ArrayList<String> vias, String toName, String toUri, String fromName,
+            String fromUri, String callId, String cSeqNumber, String cSeqStr) {
+        this.vias = vias;
+        this.toName = toName;
+        this.toUri = toUri;
+        this.fromName = fromName;
+        this.fromUri = fromUri;
+        this.callId = callId;
+        this.cSeqNumber = cSeqNumber;
+        this.cSeqStr = cSeqStr;
+        this.contentLength = 0;
+    }
+
     public ArrayList<String> getVias() {
         return vias;
     }
