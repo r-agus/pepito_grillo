@@ -34,7 +34,7 @@ public abstract class SIPMessage {
     }
     
 /**
- * Convierte el mensaje en un String. Para ello concatena la informaci�n de las cabeceras del mensaje.
+ * Convierte el mensaje en un String. Para ello concatena la informaciï¿½n de las cabeceras del mensaje.
  * 
  * @return      el mensaje como String.
  */
@@ -42,9 +42,9 @@ public abstract class SIPMessage {
     public abstract String toStringMessage();
     
 /**
- * Convierte el mensaje en un String. Para ello concatena la informaci�n de las cabeceras del mensaje.
- * <p> N�tese que es un m�todo de clase o m�todo est�tico de cara a poderse invocar sobre la propia clase SIPMessage. Este m�todo se usa como factor�a para generar los diferentes mensajes SIP a partir de lo recibido de la red.
- * <p> En realidad, como los mensajes generados heradar�n de la clase SIPMessage, al invocar a parseMessage tendremos que hacer un casting a la clase apropiada.
+ * Convierte el mensaje en un String. Para ello concatena la informaciï¿½n de las cabeceras del mensaje.
+ * <p> Nï¿½tese que es un mï¿½todo de clase o mï¿½todo estï¿½tico de cara a poderse invocar sobre la propia clase SIPMessage. Este mï¿½todo se usa como factorï¿½a para generar los diferentes mensajes SIP a partir de lo recibido de la red.
+ * <p> En realidad, como los mensajes generados heradarï¿½n de la clase SIPMessage, al invocar a parseMessage tendremos que hacer un casting a la clase apropiada.
  * 
  * @return      SIPMessage el mensaje parseado. 
  */
@@ -371,7 +371,7 @@ public abstract class SIPMessage {
     
     
     /**
-     * Parsea cada una de las l�neas de Via del mensaje recibido, les quita la parte de Via: SIP/2.0/UDP y el resultado lo devuelve como String para que pueda ser a�adido al ArrayList de las Vias del mensaje
+     * Parsea cada una de las lï¿½neas de Via del mensaje recibido, les quita la parte de Via: SIP/2.0/UDP y el resultado lo devuelve como String para que pueda ser aï¿½adido al ArrayList de las Vias del mensaje
  	* 
      * @param via en el formato red recibido del mensaje SIP
      * @return 

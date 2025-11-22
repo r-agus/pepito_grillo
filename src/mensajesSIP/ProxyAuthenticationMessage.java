@@ -1,7 +1,7 @@
 /*
- * Código de base para parsear mensajes SIP
+ * CÃ³digo de base para parsear mensajes SIP
  * Puede ser adaptado, ampliado, modificado por el alumno
- * según sus necesidades para la práctica
+ * segÃºn sus necesidades para la prÃ¡ctica
  */
 package mensajesSIP;
 

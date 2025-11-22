@@ -1,7 +1,7 @@
 /*
- * CÛdigo de base para parsear mensajes SIP
+ * C√≥digo de base para parsear mensajes SIP
  * Puede ser adaptado, ampliado, modificado por el alumno
- * seg˙n sus necesidades para la pr·ctica
+ * seg√∫n sus necesidades para la pr√°ctica
  */
 package mensajesSIP;
 
@@ -28,9 +28,9 @@ public class InviteMessage extends SIPMessage {
     private SDPMessage sdp;
 
 /**
- * AÒade una Via como String. El API aÒade las vias en formato pila de forma que la ˙ltima via aÒadida es la primera en quitarse 
+ * A√±ade una Via como String. El API a√±ade las vias en formato pila de forma que la √∫ltima via a√±adida es la primera en quitarse 
  *
- * @param  via  la Via a aÒadir
+ * @param  via  la Via a a√±adir
  */
 
     public void addVia(String via) {
@@ -40,7 +40,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Borra la ˙ltima Via aÒadida
+ * Borra la √∫ltima Via a√±adida
  *
  */
 
@@ -50,9 +50,9 @@ public class InviteMessage extends SIPMessage {
 
 /**
  * Devuelve el contenido de las Vias como ArrayList de Strings.
- * Las Vias contienen la lista de puntos por los que va pasando el mensaje y se aÒade el ˙ltimo punto al inicio de las Vias.
- * El mensaje en la red tendra vias con formato: Via: SIP/2.0/UDP identificador donde el identificador podr· contener direcciÛn IP o nombre de m·quina con o sin y puerto 
- * Este API guardar· solo la parte de identificador en la lista de vias y concatenar· la parte de Via: SIP/2.0/UDP al generar el mensaje en formato cadena
+ * Las Vias contienen la lista de puntos por los que va pasando el mensaje y se a√±ade el √∫ltimo punto al inicio de las Vias.
+ * El mensaje en la red tendra vias con formato: Via: SIP/2.0/UDP identificador donde el identificador podr√° contener direcci√≥n IP o nombre de m√°quina con o sin y puerto 
+ * Este API guardar√° solo la parte de identificador en la lista de vias y concatenar√° la parte de Via: SIP/2.0/UDP al generar el mensaje en formato cadena
  *
  * @return      las Vias del mensaje
  */
@@ -74,7 +74,7 @@ public class InviteMessage extends SIPMessage {
 
 /**
  * Recupera el nombre del destinatario. 
- * La direccion del destinatario tendr· formato <strong>toName &lt;toUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>toName &lt;toUri&gt; </strong>
  *
  * @return      el nombre del destinatario
  */
@@ -85,9 +85,9 @@ public class InviteMessage extends SIPMessage {
 
 /**
  * Establece el nombre del destinatario. 
- * La direccion del destinatario tendr· formato <strong>toName &lt;toUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>toName &lt;toUri&gt; </strong>
  *
- * @param  toName	el nombre a aÒadir
+ * @param  toName	el nombre a a√±adir
  */
 
     public void setToName(String toName) {
@@ -96,7 +96,7 @@ public class InviteMessage extends SIPMessage {
 
 /**
  * Recupera la Uri del destinatario. 
- * La direccion del destinatario tendr· formato <strong>toName &lt;toUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>toName &lt;toUri&gt; </strong>
  *
  * @return      la Uri del destinatario
  */
@@ -107,9 +107,9 @@ public class InviteMessage extends SIPMessage {
 
 /**
  * Establece la Uri del destinatario. 
- * La direccion del destinatario tendr· formato <strong>toName &lt;toUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>toName &lt;toUri&gt; </strong>
  *
- * @param  toUri		la Uri del destinatario a aÒadir
+ * @param  toUri		la Uri del destinatario a a√±adir
  */
 
     public void setToUri(String toUri) {
@@ -118,7 +118,7 @@ public class InviteMessage extends SIPMessage {
 
 /**
  * Recupera el nombre del origen. 
- * La direccion del destinatario tendr· formato <strong>fromName &lt;fromUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>fromName &lt;fromUri&gt; </strong>
  *
  * @return      el nombre del origen
  */
@@ -129,9 +129,9 @@ public class InviteMessage extends SIPMessage {
 
 /**
  * Establece el nombre del origen. 
- * La direccion del destinatario tendr· formato <strong>fromName &lt;fromUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>fromName &lt;fromUri&gt; </strong>
  *
- * @param  fromName	el nombre del origen a aÒadir
+ * @param  fromName	el nombre del origen a a√±adir
  */
 
     public void setFromName(String fromName) {
@@ -140,7 +140,7 @@ public class InviteMessage extends SIPMessage {
 
 /**
  * Recupera la Uri del origen. 
- * La direccion del destinatario tendr· formato <strong>fromName &lt;fromUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>fromName &lt;fromUri&gt; </strong>
  *
  * @return      la Uri del origen
  */
@@ -151,9 +151,9 @@ public class InviteMessage extends SIPMessage {
 
 /**
  * Establece la Uri del origen. 
- * La direccion del destinatario tendr· formato <strong>fromName &lt;fromUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>fromName &lt;fromUri&gt; </strong>
  *
- * @param  fromUri		la Uri del origen a aÒadir
+ * @param  fromUri		la Uri del origen a a√±adir
  */
 
     public void setFromUri(String fromUri) {
@@ -182,8 +182,8 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Recupera el cSeqNumber de la llamada. En SIP el n˙mero de secuencia ser· la concatenaciÛn de cSeqNumber y cSeqStr
- * Para un primer mensaje INVITE por ejemplo, el n˙mero de secuencia se formarÌa como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
+ * Recupera el cSeqNumber de la llamada. En SIP el n√∫mero de secuencia ser√° la concatenaci√≥n de cSeqNumber y cSeqStr
+ * Para un primer mensaje INVITE por ejemplo, el n√∫mero de secuencia se formar√≠a como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
  * 
  * @return      el cSeqNumber de la llamada
  */
@@ -193,8 +193,8 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Establece el cSeqNumber de la llamada. En SIP el n˙mero de secuencia ser· la concatenaciÛn de cSeqNumber y cSeqStr
- * Para un primer mensaje INVITE por ejemplo, el n˙mero de secuencia se formarÌa como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
+ * Establece el cSeqNumber de la llamada. En SIP el n√∫mero de secuencia ser√° la concatenaci√≥n de cSeqNumber y cSeqStr
+ * Para un primer mensaje INVITE por ejemplo, el n√∫mero de secuencia se formar√≠a como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
  *
  * @param	cSeqNumber 	 el cSeqNumber de la llamada
  */
@@ -204,8 +204,8 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Recupera el cSeqStr de la llamada. En SIP el n˙mero de secuencia ser· la concatenaciÛn de cSeqNumber y cSeqStr.
- * Para un primer mensaje INVITE por ejemplo, el n˙mero de secuencia se formarÌa como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
+ * Recupera el cSeqStr de la llamada. En SIP el n√∫mero de secuencia ser√° la concatenaci√≥n de cSeqNumber y cSeqStr.
+ * Para un primer mensaje INVITE por ejemplo, el n√∫mero de secuencia se formar√≠a como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
  * 
  * @return      el cSeqStr de la llamada
  */
@@ -215,8 +215,8 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Establece el cSeqStr de la llamada. En SIP el n˙mero de secuencia ser· la concatenaciÛn de cSeqNumber y cSeqStr.
- * Para un primer mensaje INVITE por ejemplo, el n˙mero de secuencia se formarÌa como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
+ * Establece el cSeqStr de la llamada. En SIP el n√∫mero de secuencia ser√° la concatenaci√≥n de cSeqNumber y cSeqStr.
+ * Para un primer mensaje INVITE por ejemplo, el n√∫mero de secuencia se formar√≠a como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
  *
  * @param	cSeqStr  el cSeqNumber de la llamada
  */
@@ -226,7 +226,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Recupera el destino de la llamada. El destino ser· la direcciÛn SIP que va en la linea de peticiÛn
+ * Recupera el destino de la llamada. El destino ser√° la direcci√≥n SIP que va en la linea de petici√≥n
  * 
  * @return      el destino de la llamada
  */
@@ -236,7 +236,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Establece el destino de la llamada. El destino ser· la direcciÛn SIP que va en la linea de peticiÛn
+ * Establece el destino de la llamada. El destino ser√° la direcci√≥n SIP que va en la linea de petici√≥n
  * 
  * @param 	el destino de la llamada
  */
@@ -246,7 +246,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Recupera el recordRoute. El recordRoute ser· un String que contiene la concatenaciÛn de los puntos intermedios de la llamada por los que tienen que pasar los futuros mensajes. Ser· una lista separada por comas. El API lo gestiona como un String sin separar cada uno de los puntos intermedios que se incluyen.
+ * Recupera el recordRoute. El recordRoute ser√° un String que contiene la concatenaci√≥n de los puntos intermedios de la llamada por los que tienen que pasar los futuros mensajes. Ser√° una lista separada por comas. El API lo gestiona como un String sin separar cada uno de los puntos intermedios que se incluyen.
  * 
  * @return      el recordRoute
  */
@@ -256,7 +256,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Establece el recordRoute. El recordRoute ser· un String que contiene la concatenaciÛn de los puntos intermedios de la llamada por los que tienen que pasar los futuros mensajes. Ser· una lista separada por comas. El API lo gestiona como un String sin separar cada uno de los puntos intermedios que se incluyen.
+ * Establece el recordRoute. El recordRoute ser√° un String que contiene la concatenaci√≥n de los puntos intermedios de la llamada por los que tienen que pasar los futuros mensajes. Ser√° una lista separada por comas. El API lo gestiona como un String sin separar cada uno de los puntos intermedios que se incluyen.
  * 
  * @param 	recordRoute
  */
@@ -307,7 +307,7 @@ public class InviteMessage extends SIPMessage {
 	
 	
 /**
-* Recupera el proxyAuthentication. El proxyAuthentication contiene una cadena con el hash MD5 de lo recibido en proxyAuthenticate del mensaje 407 ProxyAuthentication al que se le concatena la contraseÒa de usuario para calcular el hash * 
+* Recupera el proxyAuthentication. El proxyAuthentication contiene una cadena con el hash MD5 de lo recibido en proxyAuthenticate del mensaje 407 ProxyAuthentication al que se le concatena la contrase√±a de usuario para calcular el hash * 
  * @return      el proxyAuthentication
  */
 
@@ -316,7 +316,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Establece el proxyAuthentication. El proxyAuthentication contiene una cadena con el hash MD5 de lo recibido en proxyAuthenticate del mensaje 407 ProxyAuthentication al que se le concatena la contraseÒa de usuario para calcular el hash
+ * Establece el proxyAuthentication. El proxyAuthentication contiene una cadena con el hash MD5 de lo recibido en proxyAuthenticate del mensaje 407 ProxyAuthentication al que se le concatena la contrase√±a de usuario para calcular el hash
  * 
  * @param 	proxyAuthentication 
  */
@@ -327,7 +327,7 @@ public class InviteMessage extends SIPMessage {
 	
 
 /**
- * Recupera el Content-Type. El Content-Type ser· el tipo MIME asociado al contenido que se transporta en el mensaje INVITE. Nosotros usaremos Application/SDP 
+ * Recupera el Content-Type. El Content-Type ser√° el tipo MIME asociado al contenido que se transporta en el mensaje INVITE. Nosotros usaremos Application/SDP 
  * 
  * @return      contentType
  */
@@ -337,7 +337,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 	/**
- * Establece el Content-Type. El Content-Type ser· el tipo MIME asociado al contenido que se transporta en el mensaje INVITE. Nosotros usaremos Application/SDP 
+ * Establece el Content-Type. El Content-Type ser√° el tipo MIME asociado al contenido que se transporta en el mensaje INVITE. Nosotros usaremos Application/SDP 
  * 
  * @param 	contentType 
  */
@@ -347,7 +347,7 @@ public class InviteMessage extends SIPMessage {
     }
 	
 /**
- * Recupera el Content-Length. El Content-Length ser· el tamaÒo del contenido que se transporta en el mensaje INVITE en numero de caracteres. 
+ * Recupera el Content-Length. El Content-Length ser√° el tama√±o del contenido que se transporta en el mensaje INVITE en numero de caracteres. 
  * 
  * @return      contentLength
  */
@@ -357,7 +357,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 		/**
- * Establece el Content-Length. El Content-Length ser· el tamaÒo del contenido que se transporta en el mensaje INVITE en numero de caracteres.  
+ * Establece el Content-Length. El Content-Length ser√° el tama√±o del contenido que se transporta en el mensaje INVITE en numero de caracteres.  
  * 
  * @param 	contentLength 
  */
@@ -367,7 +367,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Recupera el contenido de la carga ˙til en SDP mediante la clase de soporte SDPMessage que permite establecer la IP y pueto de la sesiÛn de medios asÌ como los atributos de la misma.
+ * Recupera el contenido de la carga √∫til en SDP mediante la clase de soporte SDPMessage que permite establecer la IP y pueto de la sesi√≥n de medios as√≠ como los atributos de la misma.
  * 
  * @return      el SDPMessage 
  */
@@ -377,7 +377,7 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Establece el contenido de la carga ˙til en SDP mediante la clase de soporte SDPMessage que permite establecer la IP y pueto de la sesiÛn de medios asÌ como los atributos de la misma.
+ * Establece el contenido de la carga √∫til en SDP mediante la clase de soporte SDPMessage que permite establecer la IP y pueto de la sesi√≥n de medios as√≠ como los atributos de la misma.
  * 
  * @param 	sdp - el SDPMessage 
  */
@@ -387,11 +387,11 @@ public class InviteMessage extends SIPMessage {
     }
 
 /**
- * Convierte el mensaje en un String. Para ello concatena la informaciÛn de las cabeceras del mensaje.
+ * Convierte el mensaje en un String. Para ello concatena la informaci√≥n de las cabeceras del mensaje.
  * El toName y el fromName son opcionales a la hora de componer las cabeceras to y from pero las URIs si han de estar presentes en las variables toUri y fromUri
  * Estas cabeceras se componen como "To: " + toName + " <" + toUri + ">\n"
  * El CSeq se compone como "CSeq: " + cSeqNumber + " " + cSeqStr + "\n"
- * El Contact como "Contact: <sip:" + contact + ">\n" donde la variable contact tiene la informaciÛn de contacto pero sin la parte sip: de la URI final
+ * El Contact como "Contact: <sip:" + contact + ">\n" donde la variable contact tiene la informaci√≥n de contacto pero sin la parte sip: de la URI final
  * La carga en SDP debe tener contenido
  * 
  * @return      el mensaje como String.

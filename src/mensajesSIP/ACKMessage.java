@@ -1,7 +1,7 @@
 /*
- * CÛdigo de base para parsear mensajes SIP
+ * C√≥digo de base para parsear mensajes SIP
  * Puede ser adaptado, ampliado, modificado por el alumno
- * seg˙n sus necesidades para la pr·ctica
+ * seg√∫n sus necesidades para la pr√°ctica
  */
 package mensajesSIP;
 
@@ -21,9 +21,9 @@ public class ACKMessage extends SIPMessage {
 
 /**
  * Devuelve el contenido de las Vias como ArrayList de Strings.
- * Las Vias contienen la lista de puntos por los que va pasando el mensaje y se aÒade el ˙ltimo punto al inicio de las Vias.
- * El mensaje en la red tendra vias con formato: Via: SIP/2.0/UDP identificador donde el identificador podr· contener direcciÛn IP o nombre de m·quina con o sin y puerto 
- * Este API guardar· solo la parte de identificador en la lista de vias y concatenar· la parte de Via: SIP/2.0/UDP al generar el mensaje en formato cadena
+ * Las Vias contienen la lista de puntos por los que va pasando el mensaje y se a√±ade el √∫ltimo punto al inicio de las Vias.
+ * El mensaje en la red tendra vias con formato: Via: SIP/2.0/UDP identificador donde el identificador podr√° contener direcci√≥n IP o nombre de m√°quina con o sin y puerto 
+ * Este API guardar√° solo la parte de identificador en la lista de vias y concatenar√° la parte de Via: SIP/2.0/UDP al generar el mensaje en formato cadena
  *
  * @return      las Vias del mensaje
  */
@@ -44,9 +44,9 @@ public class ACKMessage extends SIPMessage {
     }
 
 /**
- * AÒade una Via como String. El API aÒade las vias en formato pila de forma que la ˙ltima via aÒadida es la primera en quitarse 
+ * A√±ade una Via como String. El API a√±ade las vias en formato pila de forma que la √∫ltima via a√±adida es la primera en quitarse 
  *
- * @param  via  la Via a aÒadir
+ * @param  via  la Via a a√±adir
  */
 
     public void addVia(String via) {
@@ -54,7 +54,7 @@ public class ACKMessage extends SIPMessage {
     }
 
 /**
- * Borra la ˙ltima Via aÒadida
+ * Borra la √∫ltima Via a√±adida
  *
  */
 
@@ -64,7 +64,7 @@ public class ACKMessage extends SIPMessage {
 
 /**
  * Recupera el nombre del destinatario. 
- * La direccion del destinatario tendr· formato <strong>toName &lt;toUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>toName &lt;toUri&gt; </strong>
  *
  * @return      el nombre del destinatario
  */
@@ -75,9 +75,9 @@ public class ACKMessage extends SIPMessage {
 
 /**
  * Establece el nombre del destinatario. 
- * La direccion del destinatario tendr· formato <strong>toName &lt;toUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>toName &lt;toUri&gt; </strong>
  *
- * @param  toName	el nombre a aÒadir
+ * @param  toName	el nombre a a√±adir
  */
 
     public void setToName(String toName) {
@@ -86,7 +86,7 @@ public class ACKMessage extends SIPMessage {
 
 /**
  * Recupera la Uri del destinatario. 
- * La direccion del destinatario tendr· formato <strong>toName &lt;toUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>toName &lt;toUri&gt; </strong>
  *
  * @return      la Uri del destinatario
  */
@@ -97,9 +97,9 @@ public class ACKMessage extends SIPMessage {
 
 /**
  * Establece la Uri del destinatario. 
- * La direccion del destinatario tendr· formato <strong>toName &lt;toUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>toName &lt;toUri&gt; </strong>
  *
- * @param  toUri		la Uri del destinatario a aÒadir
+ * @param  toUri		la Uri del destinatario a a√±adir
  */
 
     public void setToUri(String toUri) {
@@ -108,7 +108,7 @@ public class ACKMessage extends SIPMessage {
 
 /**
  * Recupera el nombre del origen. 
- * La direccion del destinatario tendr· formato <strong>fromName &lt;fromUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>fromName &lt;fromUri&gt; </strong>
  *
  * @return      el nombre del origen
  */
@@ -119,9 +119,9 @@ public class ACKMessage extends SIPMessage {
 
 /**
  * Establece el nombre del origen. 
- * La direccion del destinatario tendr· formato <strong>fromName &lt;fromUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>fromName &lt;fromUri&gt; </strong>
  *
- * @param  fromName	el nombre del origen a aÒadir
+ * @param  fromName	el nombre del origen a a√±adir
  */
 
     public void setFromName(String fromName) {
@@ -130,7 +130,7 @@ public class ACKMessage extends SIPMessage {
 
 /**
  * Recupera la Uri del origen. 
- * La direccion del destinatario tendr· formato <strong>fromName &lt;fromUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>fromName &lt;fromUri&gt; </strong>
  *
  * @return      la Uri del origen
  */
@@ -141,9 +141,9 @@ public class ACKMessage extends SIPMessage {
 
 /**
  * Establece la Uri del origen. 
- * La direccion del destinatario tendr· formato <strong>fromName &lt;fromUri&gt; </strong>
+ * La direccion del destinatario tendr√° formato <strong>fromName &lt;fromUri&gt; </strong>
  *
- * @param  fromUri		la Uri del origen a aÒadir
+ * @param  fromUri		la Uri del origen a a√±adir
  */
 
     public void setFromUri(String fromUri) {
@@ -172,8 +172,8 @@ public class ACKMessage extends SIPMessage {
     }
 
 /**
- * Recupera el cSeqNumber de la llamada. En SIP el n˙mero de secuencia ser· la concatenaciÛn de cSeqNumber y cSeqStr
- * Para un primer mensaje INVITE por ejemplo, el n˙mero de secuencia se formarÌa como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
+ * Recupera el cSeqNumber de la llamada. En SIP el n√∫mero de secuencia ser√° la concatenaci√≥n de cSeqNumber y cSeqStr
+ * Para un primer mensaje INVITE por ejemplo, el n√∫mero de secuencia se formar√≠a como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
  * 
  * @return      el cSeqNumber de la llamada
  */
@@ -183,8 +183,8 @@ public class ACKMessage extends SIPMessage {
     }
 
 /**
- * Establece el cSeqNumber de la llamada. En SIP el n˙mero de secuencia ser· la concatenaciÛn de cSeqNumber y cSeqStr
- * Para un primer mensaje INVITE por ejemplo, el n˙mero de secuencia se formarÌa como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
+ * Establece el cSeqNumber de la llamada. En SIP el n√∫mero de secuencia ser√° la concatenaci√≥n de cSeqNumber y cSeqStr
+ * Para un primer mensaje INVITE por ejemplo, el n√∫mero de secuencia se formar√≠a como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
  *
  * @param	cSeqNumber 	 el cSeqNumber de la llamada
  */
@@ -195,8 +195,8 @@ public class ACKMessage extends SIPMessage {
     }
 
 /**
- * Recupera el cSeqStr de la llamada. En SIP el n˙mero de secuencia ser· la concatenaciÛn de cSeqNumber y cSeqStr.
- * Para un primer mensaje INVITE por ejemplo, el n˙mero de secuencia se formarÌa como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
+ * Recupera el cSeqStr de la llamada. En SIP el n√∫mero de secuencia ser√° la concatenaci√≥n de cSeqNumber y cSeqStr.
+ * Para un primer mensaje INVITE por ejemplo, el n√∫mero de secuencia se formar√≠a como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
  * 
  * @return      el cSeqStr de la llamada
  */
@@ -206,8 +206,8 @@ public class ACKMessage extends SIPMessage {
     }
 
 /**
- * Establece el cSeqStr de la llamada. En SIP el n˙mero de secuencia ser· la concatenaciÛn de cSeqNumber y cSeqStr.
- * Para un primer mensaje INVITE por ejemplo, el n˙mero de secuencia se formarÌa como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
+ * Establece el cSeqStr de la llamada. En SIP el n√∫mero de secuencia ser√° la concatenaci√≥n de cSeqNumber y cSeqStr.
+ * Para un primer mensaje INVITE por ejemplo, el n√∫mero de secuencia se formar√≠a como 1 INVITE, donde cSeqNumber=1 y cSeqStr= INVITE 
  *
  * @param	cSeqStr  el cSeqNumber de la llamada
  */
@@ -217,7 +217,7 @@ public class ACKMessage extends SIPMessage {
     }
 
 /**
- * Recupera el destino de la llamada. El destino ser· la direcciÛn SIP que va en la linea de peticiÛn
+ * Recupera el destino de la llamada. El destino ser√° la direcci√≥n SIP que va en la linea de petici√≥n
  * 
  * @return      el destino de la llamada
  */
@@ -227,7 +227,7 @@ public class ACKMessage extends SIPMessage {
     }
 
 /**
- * Establece el destino de la llamada. El destino ser· la direcciÛn SIP que va en la linea de peticiÛn
+ * Establece el destino de la llamada. El destino ser√° la direcci√≥n SIP que va en la linea de petici√≥n
  * 
  * @param 	el destino de la llamada
  */
@@ -295,13 +295,13 @@ public class ACKMessage extends SIPMessage {
     }
 
 /**
- * Convierte el mensaje en un String. Para ello concatena la informaciÛn de las cabeceras del mensaje.
+ * Convierte el mensaje en un String. Para ello concatena la informaci√≥n de las cabeceras del mensaje.
  * El toName y el fromName son opcionales a la hora de componer las cabeceras to y from pero las URIs si han de estar presentes en las variables toUri y fromUri
  * Estas cabeceras se componen como "To: " + toName + " <" + toUri + ">\n"
  * El CSeq se compone como "CSeq: " + cSeqNumber + " " + cSeqStr + "\n"
  * No hay contact
  * No hay carga en SDP debe tener contenido
- * la cabecera route es opcional (en funciÛn de si se ha especificado loose routing en el INVITE)
+ * la cabecera route es opcional (en funci√≥n de si se ha especificado loose routing en el INVITE)
  * 
  * @return      el mensaje como String.
  */

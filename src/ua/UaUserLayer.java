@@ -9,6 +9,7 @@ import java.util.Scanner;
 import java.util.UUID;
 
 import common.FindMyIPv4;
+import common.TerminalLauncher;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.RegisterMessage;
 import mensajesSIP.SDPMessage;
@@ -206,7 +207,13 @@ public class UaUserLayer {
     }
 
     private void runVitextClient() throws IOException {
-        vitextClient = Runtime.getRuntime().exec("xterm -e vitext/vitextclient -p 5000 239.1.2.3");
+        vitextClient = TerminalLauncher.startInTerminal(
+            Arrays.asList(
+                "vitext/vitextclient",
+                "-p", "5000",
+                "239.1.2.3"
+            )
+        );
     }
 
     private void stopVitextClient() {
@@ -216,8 +223,13 @@ public class UaUserLayer {
     }
 
     private void runVitextServer() throws IOException {
-        vitextServer = Runtime.getRuntime()
-                .exec("xterm -iconic -e vitext/vitextserver -r 10 -p 5000 vitext/1.vtx 239.1.2.3");
+        vitextServer = TerminalLauncher.startInTerminal(
+            Arrays.asList(
+                "vitext/vitextserver",
+                "-p", "5000",
+                "239.1.2.3"
+            )
+        );
     }
 
     private void stopVitextServer() {
