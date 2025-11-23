@@ -3,10 +3,11 @@ package ua;
 import java.io.IOException;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Scanner;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import common.FindMyIPv4;
 import common.TerminalLauncher;
@@ -16,8 +17,8 @@ import mensajesSIP.SDPMessage;
 import mensajesSIP.SIPMessage;
 
 public class UaUserLayer {
-    private static final int IDLE = 0;
-    private int state = IDLE;
+    private enum State { UNREGISTERED, REGISTERING, REGISTERED }
+    private volatile State state = State.UNREGISTERED;
 
     public static final ArrayList<Integer> RTPFLOWS = new ArrayList<Integer>(
             Arrays.asList(new Integer[] { 96, 97, 98 }));
@@ -36,7 +37,23 @@ public class UaUserLayer {
     private RegisterMessage lastRegisterMessage;
     private volatile boolean registerResponseReceived = false;
     private Thread registerRetryThread;
-    private Thread registerExpiryThread;
+    
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledFuture<?> registrationTimeout, registrationRenewal;
+    
+    private Runnable renewRegister = () -> {
+        registerResponseReceived = false;
+        try {
+            startRegisterRetryLoop();
+        } catch (Exception e) {
+            System.err.println("Failed to restart REGISTER retry loop: " + e.getMessage());
+        }
+    };
+
+    private Runnable registerExpired = () -> {
+        this.state = State.UNREGISTERED;
+        System.err.println("Registration expired.");
+    };
 
     private Process vitextClient = null;
     private Process vitextServer = null;
@@ -83,6 +100,8 @@ public class UaUserLayer {
         }
         
         registerRetryThread = new Thread(() -> {
+            System.out.println("Starting REGISTER retry loop...");
+            this.state = State.REGISTERING;
             while (!registerResponseReceived) {
                 try {
                     transactionLayer.register(lastRegisterMessage);
@@ -92,7 +111,6 @@ public class UaUserLayer {
                     }
                     if (lastRegisterMessage != null) {
                         System.out.println("No REGISTER response received, resending...");
-                        transactionLayer.register(lastRegisterMessage);
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -102,31 +120,37 @@ public class UaUserLayer {
                 }
             }
         });
-
-        registerExpiryThread = new Thread(() -> {
-            try {
-                Thread.sleep(registerExpires);
-                // We should start registerRetryThread again
-                registerResponseReceived = false;
-                startRegisterRetryLoop();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        });
         
         registerRetryThread.setDaemon(true);
         registerRetryThread.start();
+    }
 
-        registerExpiryThread.setDaemon(true);
-        registerExpiryThread.start();
+    private void onRegister() {
+        this.state = State.REGISTERED;
+
+        // Schedule the REGISTER renewal before it expires
+        if (registrationRenewal != null && !registrationRenewal.isDone()) {
+            registrationRenewal.cancel(false);
+        }
+        long delaySeconds = (long) (registerExpires * 0.9);
+        registrationRenewal = scheduler.schedule(renewRegister, delaySeconds, TimeUnit.MILLISECONDS);
+        System.out.println("[DEBUG] Scheduled REGISTER renewal in " + delaySeconds + " ms.");
+
+        if (registrationTimeout != null && !registrationTimeout.isDone()) {
+            registrationTimeout.cancel(false);
+        }
+        registrationTimeout = scheduler.schedule(registerExpired, registerExpires, TimeUnit.MILLISECONDS);
+        System.out.println("[DEBUG] Registration timeout reset. Will expire in " + registerExpires + " ms.");
     }
 
     public void onRegisterResponse(SIPMessage sipMessage) {
         registerResponseReceived = true;
+        this.state = State.REGISTERED;
         if (registerRetryThread != null) {
             registerRetryThread.interrupt();
         }
         System.out.println("[DEBUG] Received response for REGISTER: " + sipMessage.getClass().getSimpleName());
+        onRegister();
     }
 
     public void onNotFoundResponse(SIPMessage sipMessage) {
@@ -165,11 +189,12 @@ public class UaUserLayer {
     private void prompt() {
         System.out.println("");
         switch (state) {
-            case IDLE:
+            case REGISTERED:
                 promptIdle();
                 break;
             default:
-                throw new IllegalStateException("Unexpected state: " + state);
+                break;
+                // throw new IllegalStateException("Unexpected state: " + state);
         }
         System.out.print("> ");
     }
@@ -180,7 +205,11 @@ public class UaUserLayer {
 
     private void command(String line) throws IOException {
         if (line.startsWith("INVITE")) {
-            commandInvite(line);
+            if (state == State.REGISTERED) {
+                commandInvite(line);
+            } else {
+                System.err.println("Cannot INVITE while not registered");
+            }
         } else {
             System.out.println("Bad command");
         }
