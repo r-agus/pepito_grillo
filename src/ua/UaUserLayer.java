@@ -189,12 +189,14 @@ public class UaUserLayer {
     private void prompt() {
         System.out.println("");
         switch (state) {
+            case UNREGISTERED:
+            case REGISTERING:
+                break;
             case REGISTERED:
                 promptIdle();
                 break;
             default:
-                break;
-                // throw new IllegalStateException("Unexpected state: " + state);
+                throw new IllegalStateException("Unexpected state: " + state);
         }
         System.out.print("> ");
     }
