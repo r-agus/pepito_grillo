@@ -3,6 +3,7 @@ package proxy;
 import java.io.IOException;
 import java.net.SocketException;
 
+import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.NotFoundMessage;
@@ -39,8 +40,15 @@ public class ProxyTransactionLayer {
                 break;
             }
         } else if (sipMessage instanceof TryingMessage) {
+            System.out.println("Handling TRYING message not implemented yet.");
+        } else if (sipMessage instanceof OKMessage) {
+            System.out.println("Handling OK message not implemented yet.");
+        } else if (sipMessage instanceof NotFoundMessage) {
+            userLayer.onInviteNotFoundReceived((NotFoundMessage) sipMessage); 
+        } else if (sipMessage instanceof BusyHereMessage) {
+            userLayer.onInviteBusyHereReceived((BusyHereMessage) sipMessage);
         } else if (sipMessage instanceof ByeMessage) {
-            userLayer.onByeReceived();
+            userLayer.onByeReceived((ByeMessage) sipMessage);
         } else {
             System.err.println("Unexpected message, throwing away");
             System.err.println("Message: " + sipMessage.getClass().getSimpleName());

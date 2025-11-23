@@ -11,8 +11,10 @@ import java.util.concurrent.TimeUnit;
 
 import common.FindMyIPv4;
 import common.TerminalLauncher;
+import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
+import mensajesSIP.NotFoundMessage;
 import mensajesSIP.RegisterMessage;
 import mensajesSIP.SDPMessage;
 import mensajesSIP.SIPMessage;
@@ -29,6 +31,7 @@ public class UaUserLayer {
     private String myAddress = FindMyIPv4.findMyIPv4Address().getHostAddress();
     private int rtpPort;
     private int listenPort;
+    private final String sipUser;
     private final String sipUserUri;
     private final String sipUserName;
     private final String sipUserDomain;
@@ -70,6 +73,7 @@ public class UaUserLayer {
         this.listenPort = listenPort;
         this.rtpPort = listenPort + 1;
         this.proxyAddress = proxyAddress;
+        this.sipUser = sipUser;
         this.sipUserUri = normalizeSipUri(sipUser);
         this.sipUserName = extractUser(this.sipUserUri);
         this.sipUserDomain = extractDomain(this.sipUserUri);
@@ -159,13 +163,27 @@ public class UaUserLayer {
         onRegister();
     }
 
-    public void onNotFoundResponse(SIPMessage sipMessage) {
+    public void onRegisterNotFoundResponse(SIPMessage sipMessage) {
         registerResponseReceived = true;
         if (registerRetryThread != null) {
             registerRetryThread.interrupt();
         }
         shouldExit = true;
         terminate("Received 404 Not Found for REGISTER");
+    }
+
+    public void onInviteOKResponse(SIPMessage sipMessage) {
+        if (DEBUG) System.out.println("[DEBUG] Received OK response for INVITE");
+    }
+
+    public void onInviteNotFoundResponse(NotFoundMessage sipMessage) {
+        System.err.print("Could not contact: " + sipMessage.getToName() + " (not found).");
+        stopVitextClient();
+    }
+
+    public void onInviteBusyHereResponse(BusyHereMessage sipMessage) {
+        System.err.print("Could not contact: " + sipMessage.getToName() + " (busy).");
+        stopVitextClient();
     }
 
     public void onInviteReceived(InviteMessage inviteMessage) throws IOException {
@@ -228,7 +246,16 @@ public class UaUserLayer {
         stopVitextServer();
         stopVitextClient();
 
-        System.out.println("Inviting...");
+        String to;
+        
+        try {
+            to = line.split(" ")[1];
+        } catch (Exception e) {
+            System.err.println("Usage: INVITE <sip_user>");
+            return;
+        }
+
+        System.out.println("Inviting " + to + "...");
 
         runVitextClient();
 
@@ -240,13 +267,13 @@ public class UaUserLayer {
         sdpMessage.setOptions(RTPFLOWS);
 
         InviteMessage inviteMessage = new InviteMessage();
-        inviteMessage.setDestination("sip:bob@SMA");
+        inviteMessage.setDestination("sip:" + to + "@SMA");
         inviteMessage.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
         inviteMessage.setMaxForwards(70);
-        inviteMessage.setToName("Bob");
-        inviteMessage.setToUri("sip:bob@SMA");
-        inviteMessage.setFromName("Alice");
-        inviteMessage.setFromUri("sip:alice@SMA");
+        inviteMessage.setToName(to);
+        inviteMessage.setToUri("sip:" + to + "@SMA");
+        inviteMessage.setFromName(sipUser);
+        inviteMessage.setFromUri(sipUserUri);
         inviteMessage.setCallId(callId);
         inviteMessage.setcSeqNumber("1");
         inviteMessage.setcSeqStr("INVITE");

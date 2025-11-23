@@ -2,7 +2,11 @@ package ua;
 
 import java.io.IOException;
 import java.net.SocketException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 
+import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.NotFoundMessage;
@@ -16,6 +20,20 @@ public class UaTransactionLayer {
 
     private UaUserLayer userLayer;
     private UaTransportLayer transportLayer;
+
+    private final static int CALLING_TIMEOUT_SECONDS = 30;
+    private Runnable callingTimeout = () -> {
+        try {
+            System.out.println("Call timeout reached, going back to IDLE");
+            state = State.IDLE;
+        } catch (Exception e) {
+            System.err.println("Error in calling timeout: " + e.getMessage());
+            e.printStackTrace();
+        }
+    };
+
+    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledFuture<?> callingTimeoutFuture;
 
     public UaTransactionLayer(int listenPort, String proxyAddress, int proxyPort, UaUserLayer userLayer)
             throws SocketException {
@@ -31,6 +49,7 @@ public class UaTransactionLayer {
                 case IDLE:
                     response = inviteMessage.createTryingResponse();
                     state = State.RINGING;
+                    callingTimeoutFuture = executorService.schedule(callingTimeout, CALLING_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
                     userLayer.onInviteReceived(inviteMessage);
                     break;
                 case CALLING:
@@ -50,10 +69,22 @@ public class UaTransactionLayer {
             if (sipMessage instanceof OKMessage) {
                 userLayer.onRegisterResponse(sipMessage);
             } else if (sipMessage instanceof NotFoundMessage) {
-                userLayer.onNotFoundResponse(sipMessage);
+                userLayer.onRegisterNotFoundResponse(sipMessage);
+            }
+        } else if (isResponseToInvite(sipMessage)) {
+            if (sipMessage instanceof OKMessage) {
+                state = State.IN_CALL;
+                userLayer.onInviteOKResponse(sipMessage);
+            } else if (sipMessage instanceof NotFoundMessage) {
+                userLayer.onInviteNotFoundResponse((NotFoundMessage) sipMessage);
+                state = State.IDLE;
+            } else if (sipMessage instanceof BusyHereMessage) {
+                userLayer.onInviteBusyHereResponse((BusyHereMessage) sipMessage);
+                state = State.IDLE;
             }
         } else if (sipMessage instanceof ByeMessage) {
             System.out.println("UA received BYE message");
+            state = State.IDLE;
         } else {
             System.err.println("Unexpected message (not instance of InviteMessage or REGISTER response), throwing away");
             System.err.println("Message: " + sipMessage);
@@ -67,6 +98,11 @@ public class UaTransactionLayer {
     private boolean isResponseToRegister(SIPMessage sipMessage) {
         String cSeqStr = sipMessage.getcSeqStr();
         return cSeqStr != null && "REGISTER".equalsIgnoreCase(cSeqStr);
+    }
+
+    private boolean isResponseToInvite(SIPMessage sipMessage) {
+        String cSeqStr = sipMessage.getcSeqStr();
+        return cSeqStr != null && "INVITE".equalsIgnoreCase(cSeqStr);
     }
 
     public void startListeningNetwork() {
