@@ -3,6 +3,7 @@ package ua;
 import java.io.IOException;
 import java.net.SocketException;
 
+import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.NotFoundMessage;
 import mensajesSIP.OKMessage;
@@ -51,10 +52,16 @@ public class UaTransactionLayer {
             } else if (sipMessage instanceof NotFoundMessage) {
                 userLayer.onNotFoundResponse(sipMessage);
             }
+        } else if (sipMessage instanceof ByeMessage) {
+            System.out.println("UA received BYE message");
         } else {
             System.err.println("Unexpected message (not instance of InviteMessage or REGISTER response), throwing away");
             System.err.println("Message: " + sipMessage);
         }
+    }
+
+    private void sendMessage(SIPMessage message) throws IOException {
+        transportLayer.sendToProxy(message);
     }
 
     private boolean isResponseToRegister(SIPMessage sipMessage) {
@@ -67,11 +74,15 @@ public class UaTransactionLayer {
     }
 
     public void call(InviteMessage inviteMessage) throws IOException {
-        transportLayer.sendToProxy(inviteMessage);
+        sendMessage(inviteMessage);
     }
 
     public void register(RegisterMessage registerMessage) throws IOException {
-        transportLayer.sendToProxy(registerMessage);
+        sendMessage(registerMessage);
+    }
+
+    public void sendBye(ByeMessage byeMessage) throws IOException {
+        sendMessage(byeMessage);
     }
 
     public void terminate() {

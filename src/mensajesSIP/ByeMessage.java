@@ -18,6 +18,25 @@ public class ByeMessage extends SIPMessage {
     private int maxForwards;
     private int contentLength;
 
+    public ByeMessage () {}
+
+    public ByeMessage (ArrayList<String> vias, String toName, String toUri, String fromName, String fromUri,
+                       String callId, String cSeqNumber, String cSeqStr,
+                       String destination, String route, int maxForwards) {
+        this.vias = vias;
+        this.toName = toName;
+        this.toUri = toUri;
+        this.fromName = fromName;
+        this.fromUri = fromUri;
+        this.callId = callId;
+        this.cSeqNumber = cSeqNumber;
+        this.cSeqStr = cSeqStr;
+        this.destination = destination;
+        this.route = route;
+        this.maxForwards = maxForwards;
+        this.contentLength = 0;
+    }
+    
     public void addVia(String via) {
         this.vias.add(0, via);
     }

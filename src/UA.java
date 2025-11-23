@@ -1,12 +1,13 @@
 import ua.UaUserLayer;
 
 public class UA {
+    private static final boolean DEBUG = Boolean.getBoolean("debug");
     public static void main(String[] args) throws Exception {
         if (args.length < UAHelp.mandatoryArgs || args.length > UAHelp.mandatoryArgs + UAHelp.optionalArgs) {
             UAHelp.print_help();
             return;
         }
-        System.out.println("UA launching with args: " + String.join(", ", args));
+        if (DEBUG) System.out.println("UA launching with args: " + String.join(", ", args));
 
         String sip_user = args[0];
         int listenPort = Integer.parseInt(args[1]);
@@ -15,6 +16,7 @@ public class UA {
         int registerExpires = args.length == 5 ? Integer.parseInt(args[4]) : 3000;
 
         UaUserLayer userLayer = new UaUserLayer(sip_user, listenPort, proxyAddress, proxyPort, registerExpires);
+        userLayer.setDebug(DEBUG);
 
         new Thread() {
             @Override

@@ -3,12 +3,14 @@ package proxy;
 import java.io.IOException;
 import java.net.SocketException;
 
+import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.NotFoundMessage;
 import mensajesSIP.OKMessage;
 import mensajesSIP.RegisterMessage;
 import mensajesSIP.SIPException;
 import mensajesSIP.SIPMessage;
+import mensajesSIP.TryingMessage;
 
 public class ProxyTransactionLayer {
     private static final int IDLE = 0;
@@ -36,9 +38,12 @@ public class ProxyTransactionLayer {
                 System.err.println("Message: " + sipMessage);
                 break;
             }
+        } else if (sipMessage instanceof TryingMessage) {
+        } else if (sipMessage instanceof ByeMessage) {
+            userLayer.onByeReceived();
         } else {
-            System.err.println("Unexpected message (not instance of InviteMessage), throwing away");
-            System.err.println("Message: " + sipMessage);
+            System.err.println("Unexpected message, throwing away");
+            System.err.println("Message: " + sipMessage.getClass().getSimpleName());
         }
     }
 
@@ -51,6 +56,14 @@ public class ProxyTransactionLayer {
 
     public void echoInvite(InviteMessage inviteMessage, String address, int port) throws IOException {
         transportLayer.send(inviteMessage, address, port);
+    }
+
+    public void forwardInvite(InviteMessage inviteMessage, String address, int port) throws IOException {
+        transportLayer.send(inviteMessage, address, port);
+    }
+
+    public void sendResponse(SIPMessage response, String address, int port) throws IOException {
+        transportLayer.send(response, address, port);
     }
 
     public void startListening() {

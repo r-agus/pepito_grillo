@@ -18,7 +18,7 @@ public class InviteMessage extends SIPMessage {
     private String recordRoute;
     private int maxForwards;
     private String contact;
-	private String proxyAuthentication;
+    private String proxyAuthentication;
     private String contentType;
     private int contentLength;
     private SDPMessage sdp;
@@ -480,5 +480,36 @@ public class InviteMessage extends SIPMessage {
         );
         notFoundMessage.setContact(this.contact);
         return notFoundMessage;
+    }
+
+    public ByeMessage createByeMessage() {
+        ByeMessage byeMessage = new ByeMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr,
+            this.destination,
+            this.recordRoute,
+            this.maxForwards
+        );
+        return byeMessage;
+    }
+
+    public ServiceUnavailableMessage createServiceUnavailableResponse() {
+        ServiceUnavailableMessage serviceUnavailableMessage = new ServiceUnavailableMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr
+        );
+        return serviceUnavailableMessage;
     }
 }
