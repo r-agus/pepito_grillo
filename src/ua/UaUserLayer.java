@@ -1,6 +1,9 @@
 package ua;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -28,7 +31,7 @@ public class UaUserLayer {
 
     private UaTransactionLayer transactionLayer;
 
-    private String myAddress = FindMyIPv4.findMyIPv4Address().getHostAddress();
+    private String myAddress;
     private int rtpPort;
     private int listenPort;
     private final String sipUser;
@@ -73,11 +76,25 @@ public class UaUserLayer {
         this.listenPort = listenPort;
         this.rtpPort = listenPort + 1;
         this.proxyAddress = proxyAddress;
+        this.myAddress = resolveLocalAddress(proxyAddress, proxyPort);
         this.sipUser = sipUser;
         this.sipUserUri = normalizeSipUri(sipUser);
         this.sipUserName = extractUser(this.sipUserUri);
         this.sipUserDomain = extractDomain(this.sipUserUri);
         this.registerExpires = resendTime;
+    }
+
+    private String resolveLocalAddress(String proxyAddress, int proxyPort) throws SocketException, UnknownHostException {
+        try (DatagramSocket socket = new DatagramSocket()) {
+            socket.connect(InetAddress.getByName(proxyAddress), proxyPort);
+            InetAddress localAddress = socket.getLocalAddress();
+            if (localAddress instanceof Inet4Address
+                    && !localAddress.isLoopbackAddress()
+                    && !localAddress.isAnyLocalAddress()) {
+                return localAddress.getHostAddress();
+            }
+        }
+        return FindMyIPv4.findMyIPv4Address().getHostAddress();
     }
 
     public void setDebug(boolean debug) { this.DEBUG = debug; }
