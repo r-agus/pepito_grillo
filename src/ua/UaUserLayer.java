@@ -298,6 +298,7 @@ public class UaUserLayer {
         inviteMessage.setContentType("application/sdp");
         inviteMessage.setContentLength(sdpMessage.toStringMessage().getBytes().length);
         inviteMessage.setSdp(sdpMessage);
+        this.lastInvite = inviteMessage;
 
         transactionLayer.call(inviteMessage);
     }
@@ -317,11 +318,17 @@ public class UaUserLayer {
                 this.state = State.REGISTERED;
                 if (lastInvite != null) {
                     try {
-                        ByeMessage byeMessage = lastInvite.createByeMessage();
+                        ByeMessage byeMessage = lastInvite.createByeMessageFromCaller();
+                        if (DEBUG) {
+                            System.out.println("[DEBUG] Sending BYE after vitext client exit.");
+                            System.out.println("[DEBUG] BYE Message: " + byeMessage.toString());
+                        }
                         transactionLayer.sendBye(byeMessage);
                     } catch (IOException e) {
                         System.err.println("Failed to send BYE: " + e.getMessage());
                     }
+                } else {
+                    System.out.println("No active call to send BYE for.");
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -350,7 +357,11 @@ public class UaUserLayer {
             try {
                 vitextServer.waitFor();
                 try {
-                    ByeMessage byeMessage = lastInvite.createByeMessage();
+                    ByeMessage byeMessage = lastInvite.createByeMessageFromCallee();
+                    if (DEBUG) {
+                        System.out.println("[DEBUG] Sending BYE after vitext server exit.");
+                        System.out.println("[DEBUG] BYE Message: " + byeMessage.toString());
+                    }
                     transactionLayer.sendBye(byeMessage);
                 } catch (IOException e) {
                     System.err.println("Failed to send BYE: " + e.getMessage());

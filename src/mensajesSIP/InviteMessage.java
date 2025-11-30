@@ -482,7 +482,7 @@ public class InviteMessage extends SIPMessage {
         return notFoundMessage;
     }
 
-    public ByeMessage createByeMessage() {
+    public ByeMessage createByeMessageFromCaller() {
         ByeMessage byeMessage = new ByeMessage(
             this.vias,
             this.toName,
@@ -491,7 +491,24 @@ public class InviteMessage extends SIPMessage {
             this.fromUri,
             this.callId,
             this.cSeqNumber,
-            this.cSeqStr,
+            "BYE",
+            this.destination,
+            this.recordRoute,
+            this.maxForwards
+        );
+        return byeMessage;
+    }
+
+    public ByeMessage createByeMessageFromCallee() {
+        ByeMessage byeMessage = new ByeMessage(
+            this.vias,
+            this.fromName,
+            this.fromUri,
+            this.toName,
+            this.toUri,
+            this.callId,
+            this.cSeqNumber,
+            "BYE",
             this.destination,
             this.recordRoute,
             this.maxForwards

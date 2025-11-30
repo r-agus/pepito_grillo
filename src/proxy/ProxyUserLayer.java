@@ -161,42 +161,36 @@ public class ProxyUserLayer {
         onInviteError(sipMessage, callId);
     }
 
-    private void calleeEndedCall() {
-        // Send BYE to caller
-        if (currentCall.isPresent()) {
-            Call call = currentCall.get();
-            InviteMessage inviteMessage = call.inviteMessage;
-            ArrayList<String> vias = inviteMessage.getVias();
-            String callerOrigin = vias.get(0);
-            String[] callerOriginParts = callerOrigin.split(":");
-            String callerAddress = callerOriginParts[0];
-            int callerPort = Integer.parseInt(callerOriginParts[1]);
-
-            ByeMessage byeMessage = currentCall.get().inviteMessage.createByeMessage();
-            try {
-                transactionLayer.sendResponse(byeMessage, callerAddress, callerPort);
-            } catch (IOException e) {
-                System.err.println("Failed to send BYE to caller: " + e.getMessage());
-                e.printStackTrace();
-            }
+    private void calleeEndedCall(ByeMessage byeMessage) {
+        // The byeMessage comes from the callee, forward it to the caller
+        if (!currentCall.isPresent()) return; // No active call
+        Call call = currentCall.get();
+        InviteMessage inviteMessage = call.inviteMessage;
+        ArrayList<String> vias = inviteMessage.getVias();
+        String origin = vias.get(0);
+        String[] originParts = origin.split(":");
+        String callerAddress = originParts[0];
+        int callerPort = Integer.parseInt(originParts[1]);
+        try {
+            transactionLayer.sendResponse(byeMessage, callerAddress, callerPort);
+        } catch (IOException e) {
+            System.err.println("Failed to forward BYE to caller: " + e.getMessage());
+            e.printStackTrace();
         }
+        
         this.currentCall = Optional.empty();
     }
 
-    private void callerEndedCall() {
-        // Send BYE to callee
-        if (currentCall.isPresent()) {
-            Call call = currentCall.get();
-            InviteMessage inviteMessage = call.inviteMessage;
-            Registration calleeReg = call.callee;
-
-            ByeMessage byeMessage = inviteMessage.createByeMessage();
-            try {
-                transactionLayer.sendResponse(byeMessage, calleeReg.ip, calleeReg.port);
-            } catch (IOException e) {
-                System.err.println("Failed to send BYE to callee: " + e.getMessage());
-                e.printStackTrace();
-            }
+    private void callerEndedCall(ByeMessage byeMessage) {
+        // The byeMessage comes from the caller, forward it to the callee
+        if (!currentCall.isPresent()) return; // No active call
+        Call call = currentCall.get();
+        Registration calleeReg = call.callee;
+        try {
+            transactionLayer.sendResponse(byeMessage, calleeReg.ip, calleeReg.port);
+        } catch (IOException e) {
+            System.err.println("Failed to forward BYE to callee: " + e.getMessage());
+            e.printStackTrace();
         }
         this.currentCall = Optional.empty();
     }
@@ -207,12 +201,12 @@ public class ProxyUserLayer {
             Call call = currentCall.get();
             if (call.caller.user.equals(fromName)) {
                 // Caller ended the call
-                callerEndedCall();
+                callerEndedCall(sipMessage);
                 System.out.println("Caller " + fromName + " ended the call.");
             } else if (call.callee.user.equals(fromName)) {
                 // Callee ended the call
                 System.out.println("Callee " + fromName + " ended the call.");
-                calleeEndedCall();
+                calleeEndedCall(sipMessage);
             } else {
                 System.err.println("Received BYE from unknown user: " + fromName);
             }
