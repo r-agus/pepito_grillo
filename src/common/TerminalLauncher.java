@@ -12,6 +12,7 @@ public class TerminalLauncher {
             List.of("konsole", "-e"),
             List.of("xfce4-terminal", "-e"),
             List.of("xterm", "-e"),
+            List.of("kitty", "-e"),
             List.of("flatpak-spawn", "--host")
         );
 
