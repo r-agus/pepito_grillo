@@ -5,7 +5,6 @@ import java.net.SocketException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-
 import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
@@ -122,6 +121,12 @@ public class UaTransactionLayer {
     }
 
     public void terminate() {
+        if (callingTimeoutFuture != null && !callingTimeoutFuture.isDone()) {
+            callingTimeoutFuture.cancel(false);
+        }
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdownNow();
+        }
         transportLayer.terminate();
     }
 }

@@ -5,7 +5,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
-
 import mensajesSIP.SIPMessage;
 
 public class UaTransportLayer {
@@ -51,6 +50,10 @@ public class UaTransportLayer {
 				String msg = new String(packet.getData());
 				SIPMessage sipMessage = SIPMessage.parseMessage(msg);
 				transactionLayer.onMessageReceived(sipMessage);
+			} catch(SocketException e){
+				if (terminate)
+					break;
+				e.printStackTrace();
 			} catch (Exception e) {
 				System.err.println(e.getMessage());
 				e.printStackTrace();

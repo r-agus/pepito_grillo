@@ -237,7 +237,11 @@ public class UaUserLayer {
             } else {
                 System.err.println("Cannot INVITE while not registered");
             }
-        } else {
+        } else if (line.toLowerCase().equals("exit")) {
+            shouldExit = true;
+            terminate();
+        }        
+        else {
             System.out.println("Bad command");
         }
     }
@@ -391,6 +395,15 @@ public class UaUserLayer {
     }
 
     private void terminate() {
+        if (registrationTimeout != null && !registrationTimeout.isDone()) {
+            registrationTimeout.cancel(false);
+        }
+        if (registrationRenewal != null && !registrationRenewal.isDone()) {
+            registrationRenewal.cancel(false);
+        }
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdownNow();
+        }
         transactionLayer.terminate();
         stopVitextClient();
         stopVitextServer();
