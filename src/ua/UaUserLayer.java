@@ -1,6 +1,9 @@
 package ua;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -28,7 +31,7 @@ public class UaUserLayer {
 
     private UaTransactionLayer transactionLayer;
 
-    private String myAddress = FindMyIPv4.findMyIPv4Address().getHostAddress();
+    private String myAddress;
     private int rtpPort;
     private int listenPort;
     private final String sipUser;
@@ -73,11 +76,25 @@ public class UaUserLayer {
         this.listenPort = listenPort;
         this.rtpPort = listenPort + 1;
         this.proxyAddress = proxyAddress;
+        this.myAddress = resolveLocalAddress(proxyAddress, proxyPort);
         this.sipUser = sipUser;
         this.sipUserUri = normalizeSipUri(sipUser);
         this.sipUserName = extractUser(this.sipUserUri);
         this.sipUserDomain = extractDomain(this.sipUserUri);
         this.registerExpires = resendTime;
+    }
+
+    private String resolveLocalAddress(String proxyAddress, int proxyPort) throws SocketException, UnknownHostException {
+        try (DatagramSocket socket = new DatagramSocket()) {
+            socket.connect(InetAddress.getByName(proxyAddress), proxyPort);
+            InetAddress localAddress = socket.getLocalAddress();
+            if (localAddress instanceof Inet4Address
+                    && !localAddress.isLoopbackAddress()
+                    && !localAddress.isAnyLocalAddress()) {
+                return localAddress.getHostAddress();
+            }
+        }
+        return FindMyIPv4.findMyIPv4Address().getHostAddress();
     }
 
     public void setDebug(boolean debug) { this.DEBUG = debug; }
@@ -192,6 +209,11 @@ public class UaUserLayer {
         runVitextServer();
     }
 
+    public void onByeReceived(ByeMessage byeMessage){
+        stopVitextClient();
+        stopVitextServer();
+    } 
+
     public void startListeningNetwork() {
         transactionLayer.startListeningNetwork();
     }
@@ -231,13 +253,17 @@ public class UaUserLayer {
     }
 
     private void command(String line) throws IOException {
-        if (line.startsWith("INVITE")) {
+        if (line.toLowerCase().startsWith("invite")) {
             if (state == State.REGISTERED) {
                 commandInvite(line);
             } else {
                 System.err.println("Cannot INVITE while not registered");
             }
-        } else {
+        } else if (line.toLowerCase().equals("exit")) {
+            shouldExit = true;
+            terminate();
+        }        
+        else {
             System.out.println("Bad command");
         }
     }
@@ -281,6 +307,7 @@ public class UaUserLayer {
         inviteMessage.setContentType("application/sdp");
         inviteMessage.setContentLength(sdpMessage.toStringMessage().getBytes().length);
         inviteMessage.setSdp(sdpMessage);
+        this.lastInvite = inviteMessage;
 
         transactionLayer.call(inviteMessage);
     }
@@ -300,11 +327,17 @@ public class UaUserLayer {
                 this.state = State.REGISTERED;
                 if (lastInvite != null) {
                     try {
-                        ByeMessage byeMessage = lastInvite.createByeMessage();
+                        ByeMessage byeMessage = lastInvite.createByeMessageFromCaller();
+                        if (DEBUG) {
+                            System.out.println("[DEBUG] Sending BYE after vitext client exit.");
+                            System.out.println("[DEBUG] BYE Message: " + byeMessage.toString());
+                        }
                         transactionLayer.sendBye(byeMessage);
                     } catch (IOException e) {
                         System.err.println("Failed to send BYE: " + e.getMessage());
                     }
+                } else {
+                    System.out.println("No active call to send BYE for.");
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -333,7 +366,11 @@ public class UaUserLayer {
             try {
                 vitextServer.waitFor();
                 try {
-                    ByeMessage byeMessage = lastInvite.createByeMessage();
+                    ByeMessage byeMessage = lastInvite.createByeMessageFromCallee();
+                    if (DEBUG) {
+                        System.out.println("[DEBUG] Sending BYE after vitext server exit.");
+                        System.out.println("[DEBUG] BYE Message: " + byeMessage.toString());
+                    }
                     transactionLayer.sendBye(byeMessage);
                 } catch (IOException e) {
                     System.err.println("Failed to send BYE: " + e.getMessage());
@@ -391,6 +428,15 @@ public class UaUserLayer {
     }
 
     private void terminate() {
+        if (registrationTimeout != null && !registrationTimeout.isDone()) {
+            registrationTimeout.cancel(false);
+        }
+        if (registrationRenewal != null && !registrationRenewal.isDone()) {
+            registrationRenewal.cancel(false);
+        }
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdownNow();
+        }
         transactionLayer.terminate();
         stopVitextClient();
         stopVitextServer();

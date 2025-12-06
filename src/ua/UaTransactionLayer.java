@@ -5,7 +5,6 @@ import java.net.SocketException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-
 import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
@@ -83,8 +82,9 @@ public class UaTransactionLayer {
                 state = State.IDLE;
             }
         } else if (sipMessage instanceof ByeMessage) {
-            System.out.println("UA received BYE message");
             state = State.IDLE;
+            userLayer.onByeReceived((ByeMessage) sipMessage);
+            if (callingTimeoutFuture != null) callingTimeoutFuture.cancel(false);
         } else {
             System.err.println("Unexpected message (not instance of InviteMessage or REGISTER response), throwing away");
             System.err.println("Message: " + sipMessage);
@@ -122,6 +122,12 @@ public class UaTransactionLayer {
     }
 
     public void terminate() {
+        if (callingTimeoutFuture != null && !callingTimeoutFuture.isDone()) {
+            callingTimeoutFuture.cancel(false);
+        }
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdownNow();
+        }
         transportLayer.terminate();
     }
 }
