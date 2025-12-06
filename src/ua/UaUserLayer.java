@@ -209,6 +209,11 @@ public class UaUserLayer {
         runVitextServer();
     }
 
+    public void onByeReceived(ByeMessage byeMessage){
+        stopVitextClient();
+        stopVitextServer();
+    } 
+
     public void startListeningNetwork() {
         transactionLayer.startListeningNetwork();
     }
@@ -248,7 +253,7 @@ public class UaUserLayer {
     }
 
     private void command(String line) throws IOException {
-        if (line.startsWith("INVITE")) {
+        if (line.toLowerCase().startsWith("invite")) {
             if (state == State.REGISTERED) {
                 commandInvite(line);
             } else {

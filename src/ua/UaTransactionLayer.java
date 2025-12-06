@@ -82,8 +82,8 @@ public class UaTransactionLayer {
                 state = State.IDLE;
             }
         } else if (sipMessage instanceof ByeMessage) {
-            System.out.println("UA received BYE message");
             state = State.IDLE;
+            userLayer.onByeReceived((ByeMessage) sipMessage);
             if (callingTimeoutFuture != null) callingTimeoutFuture.cancel(false);
         } else {
             System.err.println("Unexpected message (not instance of InviteMessage or REGISTER response), throwing away");
