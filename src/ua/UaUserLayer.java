@@ -1,32 +1,40 @@
 package ua;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Scanner;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import common.FindMyIPv4;
 import common.TerminalLauncher;
+import mensajesSIP.BusyHereMessage;
+import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
+import mensajesSIP.NotFoundMessage;
 import mensajesSIP.RegisterMessage;
 import mensajesSIP.SDPMessage;
 import mensajesSIP.SIPMessage;
 
 public class UaUserLayer {
-    private static final int IDLE = 0;
-    private int state = IDLE;
+    private enum State { UNREGISTERED, REGISTERING, REGISTERED }
+    private volatile State state = State.UNREGISTERED;
 
     public static final ArrayList<Integer> RTPFLOWS = new ArrayList<Integer>(
             Arrays.asList(new Integer[] { 96, 97, 98 }));
 
     private UaTransactionLayer transactionLayer;
 
-    private String myAddress = FindMyIPv4.findMyIPv4Address().getHostAddress();
+    private String myAddress;
     private int rtpPort;
     private int listenPort;
+    private final String sipUser;
     private final String sipUserUri;
     private final String sipUserName;
     private final String sipUserDomain;
@@ -36,7 +44,27 @@ public class UaUserLayer {
     private RegisterMessage lastRegisterMessage;
     private volatile boolean registerResponseReceived = false;
     private Thread registerRetryThread;
+    
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledFuture<?> registrationTimeout, registrationRenewal;
 
+    private boolean DEBUG = false;
+    
+    private Runnable renewRegister = () -> {
+        registerResponseReceived = false;
+        try {
+            startRegisterRetryLoop();
+        } catch (Exception e) {
+            System.err.println("Failed to restart REGISTER retry loop: " + e.getMessage());
+        }
+    };
+
+    private Runnable registerExpired = () -> {
+        this.state = State.UNREGISTERED;
+        System.err.println("Registration expired.");
+    };
+
+    private InviteMessage lastInvite;
     private Process vitextClient = null;
     private Process vitextServer = null;
 
@@ -48,11 +76,28 @@ public class UaUserLayer {
         this.listenPort = listenPort;
         this.rtpPort = listenPort + 1;
         this.proxyAddress = proxyAddress;
+        this.myAddress = resolveLocalAddress(proxyAddress, proxyPort);
+        this.sipUser = sipUser;
         this.sipUserUri = normalizeSipUri(sipUser);
         this.sipUserName = extractUser(this.sipUserUri);
         this.sipUserDomain = extractDomain(this.sipUserUri);
         this.registerExpires = resendTime;
     }
+
+    private String resolveLocalAddress(String proxyAddress, int proxyPort) throws SocketException, UnknownHostException {
+        try (DatagramSocket socket = new DatagramSocket()) {
+            socket.connect(InetAddress.getByName(proxyAddress), proxyPort);
+            InetAddress localAddress = socket.getLocalAddress();
+            if (localAddress instanceof Inet4Address
+                    && !localAddress.isLoopbackAddress()
+                    && !localAddress.isAnyLocalAddress()) {
+                return localAddress.getHostAddress();
+            }
+        }
+        return FindMyIPv4.findMyIPv4Address().getHostAddress();
+    }
+
+    public void setDebug(boolean debug) { this.DEBUG = debug; }
 
     public void registerWithProxy() throws IOException {
         RegisterMessage registerMessage = new RegisterMessage();
@@ -73,8 +118,6 @@ public class UaUserLayer {
         this.lastRegisterMessage = registerMessage;
         this.registerResponseReceived = false;
 
-        transactionLayer.register(registerMessage);
-        System.out.println("REGISTER sent for " + sipUserUri + " (Expires=" + registerExpires + ")");
         startRegisterRetryLoop();
     }
 
@@ -82,17 +125,19 @@ public class UaUserLayer {
         if (registerRetryThread != null && registerRetryThread.isAlive()) {
             return;
         }
-
+        
         registerRetryThread = new Thread(() -> {
+            if (DEBUG) System.out.println("[DEBUG] Starting REGISTER retry loop...");
+            this.state = State.REGISTERING;
             while (!registerResponseReceived) {
                 try {
+                    transactionLayer.register(lastRegisterMessage);
                     Thread.sleep(2000);
                     if (registerResponseReceived) {
                         break;
                     }
                     if (lastRegisterMessage != null) {
                         System.out.println("No REGISTER response received, resending...");
-                        transactionLayer.register(lastRegisterMessage);
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -102,20 +147,40 @@ public class UaUserLayer {
                 }
             }
         });
-
+        
         registerRetryThread.setDaemon(true);
         registerRetryThread.start();
     }
 
+    private void onRegister() {
+        this.state = State.REGISTERED;
+
+        // Schedule the REGISTER renewal before it expires
+        if (registrationRenewal != null && !registrationRenewal.isDone()) {
+            registrationRenewal.cancel(false);
+        }
+        long delaySeconds = (long) (registerExpires * 0.9);
+        registrationRenewal = scheduler.schedule(renewRegister, delaySeconds, TimeUnit.MILLISECONDS);
+        if (DEBUG) System.out.println("[DEBUG] Scheduled REGISTER renewal in " + delaySeconds + " ms.");
+
+        if (registrationTimeout != null && !registrationTimeout.isDone()) {
+            registrationTimeout.cancel(false);
+        }
+        registrationTimeout = scheduler.schedule(registerExpired, registerExpires, TimeUnit.MILLISECONDS);
+        if (DEBUG) System.out.println("[DEBUG] Registration timeout reset. Will expire in " + registerExpires + " ms.");
+    }
+
     public void onRegisterResponse(SIPMessage sipMessage) {
         registerResponseReceived = true;
+        this.state = State.REGISTERED;
         if (registerRetryThread != null) {
             registerRetryThread.interrupt();
         }
-        System.out.println("Received response for REGISTER: " + sipMessage.getClass().getSimpleName());
+        if (DEBUG) System.out.println("[DEBUG] Received response for REGISTER: " + sipMessage.getClass().getSimpleName());
+        onRegister();
     }
 
-    public void onNotFoundResponse(SIPMessage sipMessage) {
+    public void onRegisterNotFoundResponse(SIPMessage sipMessage) {
         registerResponseReceived = true;
         if (registerRetryThread != null) {
             registerRetryThread.interrupt();
@@ -124,10 +189,30 @@ public class UaUserLayer {
         terminate("Received 404 Not Found for REGISTER");
     }
 
+    public void onInviteOKResponse(SIPMessage sipMessage) {
+        if (DEBUG) System.out.println("[DEBUG] Received OK response for INVITE");
+    }
+
+    public void onInviteNotFoundResponse(NotFoundMessage sipMessage) {
+        System.err.print("Could not contact: " + sipMessage.getToName() + " (not found).");
+        stopVitextClient();
+    }
+
+    public void onInviteBusyHereResponse(BusyHereMessage sipMessage) {
+        System.err.print("Could not contact: " + sipMessage.getToName() + " (busy).");
+        stopVitextClient();
+    }
+
     public void onInviteReceived(InviteMessage inviteMessage) throws IOException {
         System.out.println("Received INVITE from " + inviteMessage.getFromName());
+        this.lastInvite = inviteMessage;
         runVitextServer();
     }
+
+    public void onByeReceived(ByeMessage byeMessage){
+        stopVitextClient();
+        stopVitextServer();
+    } 
 
     public void startListeningNetwork() {
         transactionLayer.startListeningNetwork();
@@ -151,7 +236,10 @@ public class UaUserLayer {
     private void prompt() {
         System.out.println("");
         switch (state) {
-            case IDLE:
+            case UNREGISTERED:
+            case REGISTERING:
+                break;
+            case REGISTERED:
                 promptIdle();
                 break;
             default:
@@ -165,9 +253,17 @@ public class UaUserLayer {
     }
 
     private void command(String line) throws IOException {
-        if (line.startsWith("INVITE")) {
-            commandInvite(line);
-        } else {
+        if (line.toLowerCase().startsWith("invite")) {
+            if (state == State.REGISTERED) {
+                commandInvite(line);
+            } else {
+                System.err.println("Cannot INVITE while not registered");
+            }
+        } else if (line.toLowerCase().equals("exit")) {
+            shouldExit = true;
+            terminate();
+        }        
+        else {
             System.out.println("Bad command");
         }
     }
@@ -176,7 +272,16 @@ public class UaUserLayer {
         stopVitextServer();
         stopVitextClient();
 
-        System.out.println("Inviting...");
+        String to;
+        
+        try {
+            to = line.split(" ")[1];
+        } catch (Exception e) {
+            System.err.println("Usage: INVITE <sip_user>");
+            return;
+        }
+
+        System.out.println("Inviting " + to + "...");
 
         runVitextClient();
 
@@ -188,13 +293,13 @@ public class UaUserLayer {
         sdpMessage.setOptions(RTPFLOWS);
 
         InviteMessage inviteMessage = new InviteMessage();
-        inviteMessage.setDestination("sip:bob@SMA");
+        inviteMessage.setDestination("sip:" + to + "@SMA");
         inviteMessage.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
         inviteMessage.setMaxForwards(70);
-        inviteMessage.setToName("Bob");
-        inviteMessage.setToUri("sip:bob@SMA");
-        inviteMessage.setFromName("Alice");
-        inviteMessage.setFromUri("sip:alice@SMA");
+        inviteMessage.setToName(to);
+        inviteMessage.setToUri("sip:" + to + "@SMA");
+        inviteMessage.setFromName(sipUser);
+        inviteMessage.setFromUri(sipUserUri);
         inviteMessage.setCallId(callId);
         inviteMessage.setcSeqNumber("1");
         inviteMessage.setcSeqStr("INVITE");
@@ -202,6 +307,7 @@ public class UaUserLayer {
         inviteMessage.setContentType("application/sdp");
         inviteMessage.setContentLength(sdpMessage.toStringMessage().getBytes().length);
         inviteMessage.setSdp(sdpMessage);
+        this.lastInvite = inviteMessage;
 
         transactionLayer.call(inviteMessage);
     }
@@ -214,6 +320,29 @@ public class UaUserLayer {
                 "239.1.2.3"
             )
         );
+
+        new Thread(() -> {
+            try {
+                vitextClient.waitFor();
+                this.state = State.REGISTERED;
+                if (lastInvite != null) {
+                    try {
+                        ByeMessage byeMessage = lastInvite.createByeMessageFromCaller();
+                        if (DEBUG) {
+                            System.out.println("[DEBUG] Sending BYE after vitext client exit.");
+                            System.out.println("[DEBUG] BYE Message: " + byeMessage.toString());
+                        }
+                        transactionLayer.sendBye(byeMessage);
+                    } catch (IOException e) {
+                        System.err.println("Failed to send BYE: " + e.getMessage());
+                    }
+                } else {
+                    System.out.println("No active call to send BYE for.");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }, "VitextClient-Watcher").start();
     }
 
     private void stopVitextClient() {
@@ -226,12 +355,30 @@ public class UaUserLayer {
         vitextServer = TerminalLauncher.startInTerminal(
             Arrays.asList(
                 "vitext/vitextserver",
-                "-r", "5",
+                "-r", "2",
                 "-p", "5000",
                 "vitext/1.vtx",
                 "239.1.2.3"
             )
         );
+
+        new Thread(() -> {
+            try {
+                vitextServer.waitFor();
+                try {
+                    ByeMessage byeMessage = lastInvite.createByeMessageFromCallee();
+                    if (DEBUG) {
+                        System.out.println("[DEBUG] Sending BYE after vitext server exit.");
+                        System.out.println("[DEBUG] BYE Message: " + byeMessage.toString());
+                    }
+                    transactionLayer.sendBye(byeMessage);
+                } catch (IOException e) {
+                    System.err.println("Failed to send BYE: " + e.getMessage());
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }, "VitextServer-Watcher").start();
     }
 
     private void stopVitextServer() {
@@ -281,6 +428,15 @@ public class UaUserLayer {
     }
 
     private void terminate() {
+        if (registrationTimeout != null && !registrationTimeout.isDone()) {
+            registrationTimeout.cancel(false);
+        }
+        if (registrationRenewal != null && !registrationRenewal.isDone()) {
+            registrationRenewal.cancel(false);
+        }
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdownNow();
+        }
         transactionLayer.terminate();
         stopVitextClient();
         stopVitextServer();

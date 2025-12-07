@@ -15,6 +15,23 @@ public class ServiceUnavailableMessage extends SIPMessage {
 
     private int contentLength;
 
+    public ServiceUnavailableMessage() {
+        super();
+    }
+
+    public ServiceUnavailableMessage(ArrayList<String> vias, String toName, String toUri, String fromName,
+            String fromUri, String callId, String cSeqNumber, String cSeqStr) {
+        this.vias = vias;
+        this.toName = toName;
+        this.toUri = toUri;
+        this.fromName = fromName;
+        this.fromUri = fromUri;
+        this.callId = callId;
+        this.cSeqNumber = cSeqNumber;
+        this.cSeqStr = cSeqStr;
+        this.contentLength = 0;
+    }
+
     public int getContentLength() {
         return contentLength;
     }
@@ -91,14 +108,14 @@ public class ServiceUnavailableMessage extends SIPMessage {
     public String toStringMessage() {
         String su;
         su = "SIP/2.0 503 Service Unavailable\n";
-        for (int i=0; i<vias.size(); i++) {
+        for (int i = 0; i < vias.size(); i++) {
             su += "Via: SIP/2.0/UDP " + vias.get(i) + "\n";
         }
-        if(getToName()!=null)
+        if (getToName() != null)
             su += "To: " + getToName() + " <" + toUri + ">\n";
         else
             su += "To: <" + toUri + ">\n";
-        if(fromName!=null)
+        if (fromName != null)
             su += "From: " + fromName + " <" + fromUri + ">\n";
         else
             su += "From: <" + fromUri + ">\n";
@@ -109,5 +126,4 @@ public class ServiceUnavailableMessage extends SIPMessage {
 
         return su;
     }
-
 }

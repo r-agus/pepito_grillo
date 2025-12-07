@@ -11,7 +11,10 @@ public class TerminalLauncher {
             List.of("gnome-terminal", "--"),
             List.of("konsole", "-e"),
             List.of("xfce4-terminal", "-e"),
-            List.of("xterm", "-e"));
+            List.of("xterm", "-e"),
+            List.of("kitty", "-e"),
+            List.of("flatpak-spawn", "--host")
+        );
 
     public static Process startInTerminal(List<String> command) throws IOException {
         String os = System.getProperty("os.name").toLowerCase();
