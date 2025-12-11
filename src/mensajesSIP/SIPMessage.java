@@ -625,4 +625,13 @@ public abstract class SIPMessage {
         }
     }    
     
+    protected String nextCSeq() {
+        int cSeqNum = 0;
+        try {
+            cSeqNum = Integer.parseInt(this.cSeqNumber);
+        } catch (NumberFormatException e) {
+            System.err.println("Internal error: CSeq number is not a valid integer.");
+        }
+        return String.valueOf(cSeqNum + 1);
+    }
 }
