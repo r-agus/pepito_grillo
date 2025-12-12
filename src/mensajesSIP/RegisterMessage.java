@@ -184,7 +184,7 @@ public class RegisterMessage extends SIPMessage {
             this.fromName,
             this.fromUri,
             this.callId,
-            nextCSeq(),
+            this.cSeqNumber,
             this.cSeqStr
         );
         okMessage.setContact(this.contact);
@@ -201,7 +201,7 @@ public class RegisterMessage extends SIPMessage {
             this.fromName,
             this.fromUri,
             this.callId,
-            nextCSeq(),
+            this.cSeqNumber,
             this.cSeqStr
         );
         notFoundMessage.setContact(this.contact);

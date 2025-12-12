@@ -432,7 +432,7 @@ public class InviteMessage extends SIPMessage {
             this.fromName,
             this.fromUri,
             this.callId,
-            nextCSeq(),
+            this.cSeqNumber,
             this.cSeqStr
         );
         return busyHereMessage;
@@ -446,7 +446,7 @@ public class InviteMessage extends SIPMessage {
             this.fromName,
             this.fromUri,
             this.callId,
-            nextCSeq(),
+            this.cSeqNumber,
             this.cSeqStr
         );
         return tryingMessage;
@@ -460,7 +460,7 @@ public class InviteMessage extends SIPMessage {
             this.fromName,
             this.fromUri,
             this.callId,
-            nextCSeq(),
+            this.cSeqNumber,
             this.cSeqStr
         );
         okMessage.setContact(this.contact);
@@ -475,7 +475,7 @@ public class InviteMessage extends SIPMessage {
             this.fromName,
             this.fromUri,
             this.callId,
-            nextCSeq(),
+            this.cSeqNumber,
             this.cSeqStr
         );
         notFoundMessage.setContact(this.contact);
@@ -490,7 +490,7 @@ public class InviteMessage extends SIPMessage {
             this.fromName,
             this.fromUri,
             this.callId,
-            nextCSeq(),
+            this.cSeqNumber,
             "BYE",
             this.destination,
             this.recordRoute,
@@ -507,7 +507,7 @@ public class InviteMessage extends SIPMessage {
             this.toName,
             this.toUri,
             this.callId,
-            nextCSeq(),
+            this.cSeqNumber,
             "BYE",
             this.destination,
             this.recordRoute,
@@ -524,7 +524,7 @@ public class InviteMessage extends SIPMessage {
             this.fromName,
             this.fromUri,
             this.callId,
-            nextCSeq(),
+            this.cSeqNumber,
             this.cSeqStr
         );
         return serviceUnavailableMessage;
