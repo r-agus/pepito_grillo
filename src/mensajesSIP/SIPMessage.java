@@ -625,11 +625,10 @@ public abstract class SIPMessage {
         }
     }    
     
-    public String nextCSeq() {
+    protected String nextCSeq() {
         int cSeqNum = 0;
         try {
             cSeqNum = Integer.parseInt(this.cSeqNumber);
-            System.out.println("Current CSeq number: " + cSeqNum);
         } catch (NumberFormatException e) {
             System.err.println("Internal error: CSeq number is not a valid integer.");
         }

@@ -100,12 +100,6 @@ public class UaUserLayer {
     public void setDebug(boolean debug) { this.DEBUG = debug; }
 
     public void registerWithProxy() throws IOException {
-        String currentCSeq;
-        if (lastRegisterMessage != null) {
-            currentCSeq = lastRegisterMessage.nextCSeq();
-        } else {
-            currentCSeq = "1";
-        }
         RegisterMessage registerMessage = new RegisterMessage();
         registerMessage.setDestination("sip:" + sipUserDomain);
         registerMessage.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
@@ -115,7 +109,7 @@ public class UaUserLayer {
         registerMessage.setFromName(sipUserName);
         registerMessage.setFromUri(sipUserUri);
         registerMessage.setCallId(UUID.randomUUID().toString());
-        registerMessage.setcSeqNumber(currentCSeq);
+        registerMessage.setcSeqNumber("1");
         registerMessage.setcSeqStr("REGISTER");
         registerMessage.setContact(buildContactUri());
         registerMessage.setExpires(registerExpires);
@@ -137,8 +131,8 @@ public class UaUserLayer {
             this.state = State.REGISTERING;
             while (!registerResponseReceived) {
                 try {
-                    lastRegisterMessage.incrementCSeq();
                     transactionLayer.register(lastRegisterMessage);
+                    lastRegisterMessage.incrementCSeq();
                     Thread.sleep(2000);
                     if (registerResponseReceived) {
                         break;
