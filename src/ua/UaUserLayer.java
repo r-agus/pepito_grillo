@@ -132,6 +132,7 @@ public class UaUserLayer {
             while (!registerResponseReceived) {
                 try {
                     transactionLayer.register(lastRegisterMessage);
+                    lastRegisterMessage.incrementCSeq();
                     Thread.sleep(2000);
                     if (registerResponseReceived) {
                         break;
