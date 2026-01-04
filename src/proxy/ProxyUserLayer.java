@@ -2,6 +2,8 @@ package proxy;
 
 import java.io.IOException;
 import java.net.SocketException;
+import java.net.UnknownHostException;
+import common.FindMyIPv4;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +15,8 @@ import java.util.Arrays;
 import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
+import mensajesSIP.ACKMessage;
+import mensajesSIP.OKMessage;
 import mensajesSIP.NotFoundMessage;
 import mensajesSIP.RegisterMessage;
 import mensajesSIP.SIPException;
@@ -60,10 +64,26 @@ public class ProxyUserLayer {
     }
     private Optional<Call> currentCall = Optional.empty(); // Use Optional to represent absence of a call
 
+    private final boolean looseRouting;
+    private final String proxyAddress;
+    private final int proxyPort;
+
     private boolean DEBUG = false;
 
-    public ProxyUserLayer(int listenPort) throws SocketException {
+    private final boolean forceRecordRoute;
+
+    public ProxyUserLayer(int listenPort, boolean looseRouting, boolean forceRecordRoute) throws SocketException {
         this.transactionLayer = new ProxyTransactionLayer(listenPort, this);
+        this.looseRouting = looseRouting;
+        this.forceRecordRoute = forceRecordRoute;
+        this.proxyPort = listenPort;
+        String addr = "127.0.0.1";
+        try {
+            addr = FindMyIPv4.findMyIPv4Address().getHostAddress();
+        } catch (Exception e) {
+            System.err.println("Could not determine local IP, using 127.0.0.1");
+        }
+        this.proxyAddress = addr;
     }
 
     public void setDebug(boolean debug) { this.DEBUG = debug; }
@@ -92,6 +112,7 @@ public class ProxyUserLayer {
         String fromName = inviteMessage.getFromName().toLowerCase();
         String toName = inviteMessage.getToName().toLowerCase();
         String callId = inviteMessage.getCallId();
+        System.out.println("[PROXY] onInviteReceived from=" + fromName + " to=" + toName + " callId=" + callId + " usersRegistered=" + registeredUsers.keySet() + " loose=" + looseRouting + " force=" + forceRecordRoute);
         
         // Check if both users are registered
         boolean usersOk = areUsersRegistered(Arrays.asList(fromName, toName));
@@ -120,6 +141,13 @@ public class ProxyUserLayer {
             return;
         }
 
+        if (looseRouting && (usersOk || forceRecordRoute)) {
+            // add Record-Route so future in-dialog requests can be routed via this proxy
+            String rr = proxyAddress + ":" + proxyPort;
+            inviteMessage.setRecordRoute(rr);
+            System.out.println("[PROXY] Added Record-Route: " + rr + " (usersOk=" + usersOk + ", force=" + forceRecordRoute + ")");
+        }
+
         currentCall = Optional.of(new Call(registeredUsers.get(fromName), registeredUsers.get(toName), callId, inviteMessage));
 
         SIPMessage trying = inviteMessage.createTryingResponse();
@@ -128,6 +156,57 @@ public class ProxyUserLayer {
         // Forward INVITE to callee
         Registration calleeReg = registeredUsers.get(toName);
         transactionLayer.forwardInvite(inviteMessage, calleeReg.ip, calleeReg.port);
+    }
+
+    public void onInviteOKReceived(OKMessage okMessage) {
+        // Forward OK back to caller, and if loose routing is enabled add record-route so caller knows
+        if (!currentCall.isPresent()) return;
+        Call call = currentCall.get();
+        ArrayList<String> vias = call.inviteMessage.getVias();
+        String origin = vias.get(0);
+        String[] originParts = origin.split(":");
+        String callerAddress = originParts[0];
+        int callerPort = Integer.parseInt(originParts[1]);
+
+        if (looseRouting) {
+            // ensure caller receives the record-route that was inserted in the INVITE
+            okMessage.setRecordRoute(call.inviteMessage.getRecordRoute());
+        }
+
+        try {
+            transactionLayer.sendResponse(okMessage, callerAddress, callerPort);
+        } catch (IOException e) {
+            System.err.println("Failed to forward OK to caller: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void onAckReceived(ACKMessage ackMessage) {
+        String fromName = ackMessage.getFromName().toLowerCase();
+        if (!currentCall.isPresent()) return;
+        Call call = currentCall.get();
+        try {
+            if (call.caller.user.equals(fromName)) {
+                // ACK from caller -> forward to callee
+                Registration calleeReg = call.callee;
+                if (looseRouting) ackMessage.setRoute(null); // proxies remove Route content
+                transactionLayer.sendResponse(ackMessage, calleeReg.ip, calleeReg.port);
+            } else if (call.callee.user.equals(fromName)) {
+                // ACK from callee -> forward to caller
+                ArrayList<String> vias = call.inviteMessage.getVias();
+                String origin = vias.get(0);
+                String[] originParts = origin.split(":");
+                String callerAddress = originParts[0];
+                int callerPort = Integer.parseInt(originParts[1]);
+                if (looseRouting) ackMessage.setRoute(null);
+                transactionLayer.sendResponse(ackMessage, callerAddress, callerPort);
+            } else {
+                System.err.println("Received ACK from unknown user: " + fromName);
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to forward ACK: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void onInviteError(SIPMessage message, String callId) {
@@ -172,6 +251,7 @@ public class ProxyUserLayer {
         String callerAddress = originParts[0];
         int callerPort = Integer.parseInt(originParts[1]);
         try {
+            if (looseRouting) byeMessage.setRoute(null);
             transactionLayer.sendResponse(byeMessage, callerAddress, callerPort);
         } catch (IOException e) {
             System.err.println("Failed to forward BYE to caller: " + e.getMessage());
@@ -187,6 +267,7 @@ public class ProxyUserLayer {
         Call call = currentCall.get();
         Registration calleeReg = call.callee;
         try {
+            if (looseRouting) byeMessage.setRoute(null);
             transactionLayer.sendResponse(byeMessage, calleeReg.ip, calleeReg.port);
         } catch (IOException e) {
             System.err.println("Failed to forward BYE to callee: " + e.getMessage());
