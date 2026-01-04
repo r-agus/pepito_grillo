@@ -192,6 +192,59 @@ public class UaUserLayer {
 
     public void onInviteOKResponse(SIPMessage sipMessage) {
         if (DEBUG) System.out.println("[DEBUG] Received OK response for INVITE");
+<<<<<<< Updated upstream
+=======
+        OKMessage ok = (OKMessage) sipMessage;
+
+        // If the OK carries Record-Route this means loose routing is active
+        String recordRoute = ok.getRecordRoute();
+        if (recordRoute != null) {
+            // save recordRoute for in-dialog requests (BYE)
+            if (this.lastInvite != null) {
+                this.lastInvite.setRecordRoute(recordRoute);
+            }
+        }
+        // Save contact from OK so BYE can be sent end-to-end when no loose routing
+        String contact = ok.getContact();
+        if (contact != null && this.lastInvite != null) {
+            this.lastInvite.setContact(contact);
+        }
+
+        // Build ACK and send either via proxy (loose routing) or directly to contact (end-to-end)
+        try {
+            ACKMessage ack = new ACKMessage();
+            ack.setDestination(ok.getToUri());
+            ack.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
+            if (recordRoute != null) {
+                ack.setRoute(recordRoute);
+            }
+            ack.setMaxForwards(70);
+            ack.setToName(ok.getToName());
+            ack.setToUri(ok.getToUri());
+            ack.setFromName(ok.getFromName());
+            ack.setFromUri(ok.getFromUri());
+            ack.setCallId(ok.getCallId());
+            ack.setcSeqNumber(ok.getcSeqNumber());
+            ack.setcSeqStr("ACK");
+
+            if (recordRoute != null) {
+                // send via proxy so proxy will forward along the recorded route
+                transactionLayer.sendMessageToProxy(ack);
+            } else if (ok.getContact() != null) {
+                // send directly to contact
+                String[] parts = ok.getContact().split(":");
+                String addr = parts[0];
+                int port = Integer.parseInt(parts[1]);
+                transactionLayer.sendMessageToAddress(ack, addr, port);
+            } else {
+                // fallback: send to proxy
+                transactionLayer.sendMessageToProxy(ack);
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to send ACK: " + e.getMessage());
+            e.printStackTrace();
+        }
+>>>>>>> Stashed changes
     }
 
     public void onInviteNotFoundResponse(NotFoundMessage sipMessage) {
@@ -333,7 +386,18 @@ public class UaUserLayer {
                             System.out.println("[DEBUG] Sending BYE after vitext client exit.");
                             System.out.println("[DEBUG] BYE Message: " + byeMessage.toString());
                         }
-                        transactionLayer.sendBye(byeMessage);
+                        // If record-route exists, send via proxy; otherwise send directly to contact
+                        if (lastInvite.getRecordRoute() != null) {
+                            transactionLayer.sendBye(byeMessage);
+                        } else if (lastInvite.getContact() != null) {
+                            String[] parts = lastInvite.getContact().split(":");
+                            String addr = parts[0];
+                            int port = Integer.parseInt(parts[1]);
+                            transactionLayer.sendMessageToAddress(byeMessage, addr, port);
+                        } else {
+                            // fallback to proxy
+                            transactionLayer.sendBye(byeMessage);
+                        }
                     } catch (IOException e) {
                         System.err.println("Failed to send BYE: " + e.getMessage());
                     }
@@ -372,7 +436,18 @@ public class UaUserLayer {
                         System.out.println("[DEBUG] Sending BYE after vitext server exit.");
                         System.out.println("[DEBUG] BYE Message: " + byeMessage.toString());
                     }
-                    transactionLayer.sendBye(byeMessage);
+                    // If record-route exists, send via proxy; otherwise send directly to contact
+                    if (lastInvite.getRecordRoute() != null) {
+                        transactionLayer.sendBye(byeMessage);
+                    } else if (lastInvite.getContact() != null) {
+                        String[] parts = lastInvite.getContact().split(":");
+                        String addr = parts[0];
+                        int port = Integer.parseInt(parts[1]);
+                        transactionLayer.sendMessageToAddress(byeMessage, addr, port);
+                    } else {
+                        // fallback to proxy
+                        transactionLayer.sendBye(byeMessage);
+                    }
                 } catch (IOException e) {
                     System.err.println("Failed to send BYE: " + e.getMessage());
                 }

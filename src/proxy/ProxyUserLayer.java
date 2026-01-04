@@ -9,10 +9,20 @@ import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Arrays;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
+<<<<<<< Updated upstream
+=======
+import mensajesSIP.RequestTimeoutMessage;
+import mensajesSIP.ACKMessage;
+import mensajesSIP.OKMessage;
+>>>>>>> Stashed changes
 import mensajesSIP.NotFoundMessage;
 import mensajesSIP.RegisterMessage;
 import mensajesSIP.SIPException;
@@ -62,7 +72,15 @@ public class ProxyUserLayer {
 
     private boolean DEBUG = false;
 
+<<<<<<< Updated upstream
     public ProxyUserLayer(int listenPort) throws SocketException {
+=======
+    private final boolean forceRecordRoute;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private final Map<String, ScheduledFuture<?>> inviteTimeouts = new HashMap<>();
+
+    public ProxyUserLayer(int listenPort, boolean looseRouting, boolean forceRecordRoute) throws SocketException {
+>>>>>>> Stashed changes
         this.transactionLayer = new ProxyTransactionLayer(listenPort, this);
     }
 
@@ -128,8 +146,93 @@ public class ProxyUserLayer {
         // Forward INVITE to callee
         Registration calleeReg = registeredUsers.get(toName);
         transactionLayer.forwardInvite(inviteMessage, calleeReg.ip, calleeReg.port);
+        // Schedule a 408 Request Timeout if no response within 10s
+        final String fid = callId;
+        final String fOriginAddress = originAddress;
+        final int fOriginPort = originPort;
+        ScheduledFuture<?> future = scheduler.schedule(() -> {
+            try {
+                if (currentCall.isPresent() && currentCall.get().callId.equals(fid)) {
+                    RequestTimeoutMessage rt = new RequestTimeoutMessage();
+                    rt.setVias(inviteMessage.getVias());
+                    rt.setToName(inviteMessage.getToName());
+                    rt.setToUri(inviteMessage.getToUri());
+                    rt.setFromName(inviteMessage.getFromName());
+                    rt.setFromUri(inviteMessage.getFromUri());
+                    rt.setCallId(inviteMessage.getCallId());
+                    rt.setcSeqNumber(inviteMessage.getcSeqNumber());
+                    rt.setcSeqStr(inviteMessage.getcSeqStr());
+                    rt.setContentLength(0);
+                    System.out.println("[PROXY] INVITE timed out (10s), sending 408 to " + fOriginAddress + ":" + fOriginPort + " callId=" + fid);
+                    transactionLayer.sendResponse(rt, fOriginAddress, fOriginPort);
+                    // clear call state
+                    currentCall = Optional.empty();
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to send 408: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }, 10, TimeUnit.SECONDS);
+        inviteTimeouts.put(callId, future);
     }
 
+<<<<<<< Updated upstream
+=======
+    public void onInviteOKReceived(OKMessage okMessage) {
+        // Forward OK back to caller, and if loose routing is enabled add record-route so caller knows
+        if (!currentCall.isPresent()) return;
+        Call call = currentCall.get();
+        ArrayList<String> vias = call.inviteMessage.getVias();
+        String origin = vias.get(0);
+        String[] originParts = origin.split(":");
+        String callerAddress = originParts[0];
+        int callerPort = Integer.parseInt(originParts[1]);
+
+        if (looseRouting) {
+            // ensure caller receives the record-route that was inserted in the INVITE
+            okMessage.setRecordRoute(call.inviteMessage.getRecordRoute());
+        }
+
+        // Cancel invite timeout if present
+        cancelInviteTimeout(call.callId);
+
+        try {
+            transactionLayer.sendResponse(okMessage, callerAddress, callerPort);
+        } catch (IOException e) {
+            System.err.println("Failed to forward OK to caller: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void onAckReceived(ACKMessage ackMessage) {
+        String fromName = ackMessage.getFromName().toLowerCase();
+        if (!currentCall.isPresent()) return;
+        Call call = currentCall.get();
+        try {
+            if (call.caller.user.equals(fromName)) {
+                // ACK from caller -> forward to callee
+                Registration calleeReg = call.callee;
+                if (looseRouting) ackMessage.setRoute(null); // proxies remove Route content
+                transactionLayer.sendResponse(ackMessage, calleeReg.ip, calleeReg.port);
+            } else if (call.callee.user.equals(fromName)) {
+                // ACK from callee -> forward to caller
+                ArrayList<String> vias = call.inviteMessage.getVias();
+                String origin = vias.get(0);
+                String[] originParts = origin.split(":");
+                String callerAddress = originParts[0];
+                int callerPort = Integer.parseInt(originParts[1]);
+                if (looseRouting) ackMessage.setRoute(null);
+                transactionLayer.sendResponse(ackMessage, callerAddress, callerPort);
+            } else {
+                System.err.println("Received ACK from unknown user: " + fromName);
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to forward ACK: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+>>>>>>> Stashed changes
     private void onInviteError(SIPMessage message, String callId) {
         if (currentCall.isPresent() && currentCall.get().callId.equals(callId)) {
             Call call = currentCall.get();
@@ -141,6 +244,8 @@ public class ProxyUserLayer {
             int originPort = Integer.parseInt(originParts[1]);
 
             try {
+                // Cancel any pending invite timeout
+                cancelInviteTimeout(callId);
                 SIPMessage notFoundResponse = inviteMessage.createNotFoundResponse();
                 transactionLayer.sendResponse(notFoundResponse, originAddress, originPort);
             } catch (IOException e) {
@@ -153,11 +258,15 @@ public class ProxyUserLayer {
 
     public void onInviteNotFoundReceived(NotFoundMessage sipMessage) {
         String callId = sipMessage.getCallId();
+        // Cancel timeout and handle error
+        cancelInviteTimeout(callId);
         onInviteError(sipMessage, callId);
     }
 
     public void onInviteBusyHereReceived(BusyHereMessage sipMessage) {
         String callId = sipMessage.getCallId();
+        // Cancel timeout and handle error
+        cancelInviteTimeout(callId);
         onInviteError(sipMessage, callId);
     }
 
@@ -212,6 +321,15 @@ public class ProxyUserLayer {
             }
         } else {
             System.err.println("Received BYE but there is no active call.");
+        }
+    }
+
+    private void cancelInviteTimeout(String callId) {
+        if (callId == null) return;
+        ScheduledFuture<?> f = inviteTimeouts.remove(callId);
+        if (f != null) {
+            f.cancel(false);
+            if (DEBUG) System.out.println("[DEBUG] Cancelled invite timeout for callId=" + callId);
         }
     }
 
