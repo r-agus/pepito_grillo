@@ -29,3 +29,8 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+# Java build artifacts
+*.class
+out/
+out~/
+bin/
