@@ -9,6 +9,10 @@ import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Arrays;
+import java.io.InputStream;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.Unmarshaller;
 
 import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
@@ -17,6 +21,15 @@ import mensajesSIP.NotFoundMessage;
 import mensajesSIP.RegisterMessage;
 import mensajesSIP.SIPException;
 import mensajesSIP.SIPMessage;
+import mensajesSIP.TryingMessage;
+import mensajesSIP.ServiceUnavailableMessage;
+import mensajesSIP.OKMessage;
+
+import sipServlet.SIPServletInterface;
+import sipServlet.SipServletRequest;
+import sipServlet.Users;
+import sipServlet.User;
+import sipServlet.UsersServletReader;
 
 public class ProxyUserLayer {
     private class Registration {
@@ -43,7 +56,7 @@ public class ProxyUserLayer {
         }
     }
     private final ProxyTransactionLayer transactionLayer;
-    private final Set<String> allowedUsers = Set.of("alice", "bob");
+    private final Set<String> allowedUsers = Set.of("alice", "bob", "mario", "boss");
     private final Map<String, Registration> registeredUsers = new HashMap<>(); // To store registered users by their fromName without duplicates
 
     private class Call {
@@ -61,12 +74,58 @@ public class ProxyUserLayer {
     private Optional<Call> currentCall = Optional.empty(); // Use Optional to represent absence of a call
 
     private boolean DEBUG = false;
+    
+    private final Map<String, String> userServlets = new HashMap<>();
+
+    private void loadUserServlets() {
+        try (InputStream xml = UsersServletReader.class.getResourceAsStream("users.xml")) {
+            if (xml == null) {
+                System.err.println("users.xml not found");
+                return;
+            }
+            JAXBContext jaxbContext = JAXBContext.newInstance(Users.class);
+            Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
+            Users users = (Users) jaxbUnmarshaller.unmarshal(xml);
+            for (User user : users.getListUsers()) {
+                String id = user.getId();
+                String username = extractUserFromUri(id);
+                if (username != null) {
+                    userServlets.put(username.toLowerCase(), user.getServletClass().getName());
+                }
+            }
+            System.out.println("Loaded servlets: " + userServlets);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
+    private String extractUserFromUri(String uri) {
+        if (uri.startsWith("sip:")) {
+            int atIndex = uri.indexOf('@');
+            if (atIndex > 4) {
+                return uri.substring(4, atIndex);
+            }
+        }
+        return null;
+    }
 
     public ProxyUserLayer(int listenPort) throws SocketException {
         this.transactionLayer = new ProxyTransactionLayer(listenPort, this);
+        loadUserServlets();
     }
 
     public void setDebug(boolean debug) { this.DEBUG = debug; }
+
+    private SIPMessage createResponse(InviteMessage invite, int statusCode) {
+        switch (statusCode) {
+            case 100: return invite.createTryingResponse();
+            case 200: return invite.createOKResponse();
+            case 404: return invite.createNotFoundResponse();
+            case 486: return invite.createBusyHereResponse();
+            case 503: return invite.createServiceUnavailableResponse();
+            default: return null;
+        }
+    }
 
     public void onRegisterReceived(RegisterMessage registerMessage) throws IOException, SIPException {
         String fromName = registerMessage.getFromName().toLowerCase();
@@ -92,6 +151,57 @@ public class ProxyUserLayer {
         String fromName = inviteMessage.getFromName().toLowerCase();
         String toName = inviteMessage.getToName().toLowerCase();
         String callId = inviteMessage.getCallId();
+        
+        // Servlet Logic
+        String servletClassName = userServlets.get(toName);
+        if (servletClassName == null) {
+            servletClassName = userServlets.get(fromName);
+        }
+
+        if (servletClassName != null) {
+            try {
+                Class<?> clazz = Class.forName(servletClassName);
+                SIPServletInterface servlet = (SIPServletInterface) clazz.getDeclaredConstructor().newInstance();
+                SipServletRequest request = new SipServletRequest(inviteMessage);
+                servlet.doInvite(request);
+
+                ArrayList<String> vias = inviteMessage.getVias();
+                String origin = vias.get(0);
+                String[] originParts = origin.split(":");
+                String originAddress = originParts[0];
+                int originPort = Integer.parseInt(originParts[1]);
+
+                if (request.isResponseSent()) {
+                    int statusCode = request.getResponseStatusCode();
+                    SIPMessage response = createResponse(inviteMessage, statusCode);
+                    if (response != null) {
+                        transactionLayer.sendResponse(response, originAddress, originPort);
+                    } else {
+                        System.err.println("Unsupported status code from servlet: " + statusCode);
+                    }
+                    return;
+                } else if (request.isProxyActionTaken()) {
+                    String proxyUri = request.getProxyToURI();
+                    String targetUser = extractUserFromUri(proxyUri);
+                    if (targetUser == null) targetUser = proxyUri; 
+                    
+                    Registration targetReg = registeredUsers.get(targetUser.toLowerCase());
+                    if (targetReg != null) {
+                        SIPMessage trying = inviteMessage.createTryingResponse();
+                        transactionLayer.sendResponse(trying, originAddress, originPort);
+                        
+                        transactionLayer.forwardInvite(inviteMessage, targetReg.ip, targetReg.port);
+                        currentCall = Optional.of(new Call(registeredUsers.get(fromName), targetReg, callId, inviteMessage));
+                    } else {
+                        SIPMessage notFound = inviteMessage.createNotFoundResponse();
+                        transactionLayer.sendResponse(notFound, originAddress, originPort);
+                    }
+                    return;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
         
         // Check if both users are registered
         boolean usersOk = areUsersRegistered(Arrays.asList(fromName, toName));
