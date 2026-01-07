@@ -99,6 +99,7 @@ public class UaUserLayer {
     }
 
     public void setDebug(boolean debug) { this.DEBUG = debug; }
+    public boolean isDebug() { return DEBUG; }
 
     public void registerWithProxy() throws IOException {
         RegisterMessage registerMessage = new RegisterMessage();
@@ -196,7 +197,7 @@ public class UaUserLayer {
     }
 
     public void onInviteNotFoundResponse(NotFoundMessage sipMessage) {
-        System.err.print("Could not contact: " + sipMessage.getToName() + " (not found).");
+        System.err.println("Could not contact: " + sipMessage.getToName() + " (not found).");
         stopVitextClient();
     }
 

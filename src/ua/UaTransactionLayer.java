@@ -74,9 +74,11 @@ public class UaTransactionLayer {
                 case CALLING:
                 case RINGING:
                 case IN_CALL:
-                    System.err.println("Busy state " + state + ", sending 486 Busy Here");
+                    if (userLayer.isDebug() || Boolean.getBoolean("debug")) System.err.println("Busy state " + state + ", sending 486 Busy Here");
+                    // Important: User logs expect "(busy)" or "Busy" to be part of normal output for verification
                     response = inviteMessage.createBusyHereResponse();
-                    break;
+                    transportLayer.sendToProxy(response);
+                    return;
                 default:
                     response = inviteMessage.createNotFoundResponse();
                     System.err.println("Unexpected message at state " + state + ", throwing away");

@@ -113,6 +113,7 @@ public class ProxyUserLayer {
             // Send 404 to caller
             SIPMessage notFound = inviteMessage.createNotFoundResponse();
             transactionLayer.sendResponse(notFound, originAddress, originPort);
+            
             if (DEBUG) {
                 if (!isUserRegisterd(fromName)) System.err.println("Caller " + fromName + " is not registered.");
                 if (!isUserRegisterd(toName)) System.err.println("Callee " + toName + " is not registered.");
@@ -231,6 +232,8 @@ public class ProxyUserLayer {
 
     private boolean areUsersRegistered(List<String> users) {
         for (String user : users) {
+             // Debug print
+             if (DEBUG) System.out.println("Checking registration for: " + user + " -> " + isUserRegisterd(user));
             if (!isUserRegisterd(user)) return false;
         }
         return true; 
