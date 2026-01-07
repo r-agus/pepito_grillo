@@ -38,7 +38,8 @@ public class ProxyTransportLayer {
 				byte[] buf = new byte[BUFSIZE];
 				DatagramPacket packet = new DatagramPacket(buf, buf.length);
 				socket.receive(packet);
-				String msg = new String(packet.getData());
+				String msg = new String(packet.getData(), 0, packet.getLength());
+                // System.out.println("DEBUG RAW: " + msg); // Uncomment if needed
 				SIPMessage sipMessage = SIPMessage.parseMessage(msg);
 				transactionLayer.onMessageReceived(sipMessage);
 			} catch (Exception e) {
