@@ -49,6 +49,7 @@ public class UaUserLayer {
     private ScheduledFuture<?> registrationTimeout, registrationRenewal;
 
     private boolean DEBUG = false;
+    private static final boolean TEST_MODE = Boolean.getBoolean("testMode");
     
     private Runnable renewRegister = () -> {
         registerResponseReceived = false;
