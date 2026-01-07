@@ -17,6 +17,24 @@ public class RingingMessage extends SIPMessage {
     private String contact;
     private int contentLength;
 
+    public RingingMessage() {
+        this.vias = new ArrayList<String>();
+        this.contentLength = 0;
+    }
+
+    public RingingMessage(ArrayList<String> vias, String toName, String toUri, String fromName,
+            String fromUri, String callId, String cSeqNumber, String cSeqStr) {
+        this.vias = vias;
+        this.toName = toName;
+        this.toUri = toUri;
+        this.fromName = fromName;
+        this.fromUri = fromUri;
+        this.callId = callId;
+        this.cSeqNumber = cSeqNumber;
+        this.cSeqStr = cSeqStr;
+        this.contentLength = 0;
+    }
+
     public void addVia(String via) {
         this.vias.add(0, via);
     }
