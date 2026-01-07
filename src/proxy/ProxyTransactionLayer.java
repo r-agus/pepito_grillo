@@ -2,13 +2,14 @@ package proxy;
 
 import java.io.IOException;
 import java.net.SocketException;
-
 import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.NotFoundMessage;
 import mensajesSIP.OKMessage;
 import mensajesSIP.RegisterMessage;
+import mensajesSIP.RequestTimeoutMessage;
+import mensajesSIP.RingingMessage;
 import mensajesSIP.SIPException;
 import mensajesSIP.SIPMessage;
 import mensajesSIP.TryingMessage;
@@ -40,9 +41,13 @@ public class ProxyTransactionLayer {
                 break;
             }
         } else if (sipMessage instanceof TryingMessage) {
-            System.out.println("Handling TRYING message not implemented yet.");
+            userLayer.onTryingReceived((TryingMessage) sipMessage);
         } else if (sipMessage instanceof OKMessage) {
-            System.out.println("Handling OK message not implemented yet.");
+            userLayer.onOKReceived((OKMessage) sipMessage);
+        } else if (sipMessage instanceof RingingMessage) {
+            userLayer.onRingingReceived((RingingMessage) sipMessage);
+        } else if (sipMessage instanceof RequestTimeoutMessage) {
+            userLayer.onRequestTimeoutReceived((RequestTimeoutMessage) sipMessage);
         } else if (sipMessage instanceof NotFoundMessage) {
             userLayer.onInviteNotFoundReceived((NotFoundMessage) sipMessage); 
         } else if (sipMessage instanceof BusyHereMessage) {

@@ -3,20 +3,23 @@ package proxy;
 import java.io.IOException;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Arrays;
-
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.NotFoundMessage;
+import mensajesSIP.OKMessage;
 import mensajesSIP.RegisterMessage;
+import mensajesSIP.RequestTimeoutMessage;
+import mensajesSIP.RingingMessage;
 import mensajesSIP.SIPException;
 import mensajesSIP.SIPMessage;
+import mensajesSIP.TryingMessage;
 
 public class ProxyUserLayer {
     private class Registration {
@@ -42,15 +45,13 @@ public class ProxyUserLayer {
                     '}';
         }
     }
-    private final ProxyTransactionLayer transactionLayer;
-    private final Set<String> allowedUsers = Set.of("alice", "bob");
-    private final Map<String, Registration> registeredUsers = new HashMap<>(); // To store registered users by their fromName without duplicates
-
+    
     private class Call {
         Registration caller;
         Registration callee;
         String callId;
         InviteMessage inviteMessage;
+        
         Call(Registration caller, Registration callee, String callId, InviteMessage inviteMessage) {
             this.caller = caller;
             this.callee = callee;
@@ -58,7 +59,13 @@ public class ProxyUserLayer {
             this.inviteMessage = inviteMessage;
         }
     }
-    private Optional<Call> currentCall = Optional.empty(); // Use Optional to represent absence of a call
+    
+    // Changed to Map to support multiple concurrent calls
+    private final Map<String, Call> activeCalls = new ConcurrentHashMap<>();
+
+    private final ProxyTransactionLayer transactionLayer;
+    private final Set<String> allowedUsers = Set.of("alice", "bob", "charlie");
+    private final Map<String, Registration> registeredUsers = new HashMap<>(); 
 
     private boolean DEBUG = false;
 
@@ -113,14 +120,8 @@ public class ProxyUserLayer {
             return;
         }
 
-        if (currentCall.isPresent() && !currentCall.get().callId.equals(callId)) {
-            // Send 503 service unavailable to caller
-            SIPMessage serviceUnavailable = inviteMessage.createServiceUnavailableResponse();
-            transactionLayer.sendResponse(serviceUnavailable, originAddress, originPort);
-            return;
-        }
-
-        currentCall = Optional.of(new Call(registeredUsers.get(fromName), registeredUsers.get(toName), callId, inviteMessage));
+        // Store active call
+        activeCalls.put(callId, new Call(registeredUsers.get(fromName), registeredUsers.get(toName), callId, inviteMessage));
 
         SIPMessage trying = inviteMessage.createTryingResponse();
         transactionLayer.sendResponse(trying, originAddress, originPort);
@@ -131,8 +132,8 @@ public class ProxyUserLayer {
     }
 
     private void onInviteError(SIPMessage message, String callId) {
-        if (currentCall.isPresent() && currentCall.get().callId.equals(callId)) {
-            Call call = currentCall.get();
+        Call call = activeCalls.get(callId);
+        if (call != null) {
             InviteMessage inviteMessage = call.inviteMessage;
             ArrayList<String> vias = inviteMessage.getVias();
             String origin = vias.get(0);
@@ -141,77 +142,90 @@ public class ProxyUserLayer {
             int originPort = Integer.parseInt(originParts[1]);
 
             try {
-                SIPMessage notFoundResponse = inviteMessage.createNotFoundResponse();
-                transactionLayer.sendResponse(notFoundResponse, originAddress, originPort);
+                SIPMessage response;
+                if (message instanceof BusyHereMessage) {
+                    response = inviteMessage.createBusyHereResponse();
+                } else {
+                    response = inviteMessage.createNotFoundResponse();
+                }
+                transactionLayer.sendResponse(response, originAddress, originPort);
             } catch (IOException e) {
-                System.err.println("Failed to send NOT FOUND response to caller: " + e.getMessage());
+                System.err.println("Failed to send response to caller: " + e.getMessage());
                 e.printStackTrace();
             }
-            currentCall = Optional.empty();
+            activeCalls.remove(callId);
         }
     }
 
     public void onInviteNotFoundReceived(NotFoundMessage sipMessage) {
-        String callId = sipMessage.getCallId();
-        onInviteError(sipMessage, callId);
+        onInviteError(sipMessage, sipMessage.getCallId());
     }
 
     public void onInviteBusyHereReceived(BusyHereMessage sipMessage) {
-        String callId = sipMessage.getCallId();
-        onInviteError(sipMessage, callId);
+        onInviteError(sipMessage, sipMessage.getCallId());
     }
 
-    private void calleeEndedCall(ByeMessage byeMessage) {
-        // The byeMessage comes from the callee, forward it to the caller
-        if (!currentCall.isPresent()) return; // No active call
-        Call call = currentCall.get();
-        InviteMessage inviteMessage = call.inviteMessage;
-        ArrayList<String> vias = inviteMessage.getVias();
-        String origin = vias.get(0);
-        String[] originParts = origin.split(":");
-        String callerAddress = originParts[0];
-        int callerPort = Integer.parseInt(originParts[1]);
-        try {
-            transactionLayer.sendResponse(byeMessage, callerAddress, callerPort);
-        } catch (IOException e) {
-            System.err.println("Failed to forward BYE to caller: " + e.getMessage());
-            e.printStackTrace();
-        }
-        
-        this.currentCall = Optional.empty();
+    public void onTryingReceived(TryingMessage msg) {
+        forwardResponseToCaller(msg, msg.getCallId());
     }
 
-    private void callerEndedCall(ByeMessage byeMessage) {
-        // The byeMessage comes from the caller, forward it to the callee
-        if (!currentCall.isPresent()) return; // No active call
-        Call call = currentCall.get();
-        Registration calleeReg = call.callee;
-        try {
-            transactionLayer.sendResponse(byeMessage, calleeReg.ip, calleeReg.port);
-        } catch (IOException e) {
-            System.err.println("Failed to forward BYE to callee: " + e.getMessage());
-            e.printStackTrace();
+    public void onRingingReceived(RingingMessage msg) {
+        forwardResponseToCaller(msg, msg.getCallId());
+    }
+
+    public void onOKReceived(OKMessage msg) {
+        System.out.println("ProxyUserLayer: onOKReceived called.");
+        forwardResponseToCaller(msg, msg.getCallId());
+    }
+
+    public void onRequestTimeoutReceived(RequestTimeoutMessage msg) {
+        forwardResponseToCaller(msg, msg.getCallId());
+        activeCalls.remove(msg.getCallId());
+    }
+
+    private void forwardResponseToCaller(SIPMessage msg, String callId) {
+        Call call = activeCalls.get(callId);
+        if (call != null) {
+            try {
+                System.out.println("Forwarding response to " + call.caller.user + " at " + call.caller.port);
+                transactionLayer.sendResponse(msg, call.caller.ip, call.caller.port);
+            } catch (IOException e) {
+                System.err.println("Failed to forward response: " + e.getMessage());
+            }
+        } else {
+             System.err.println("Cannot forward response: Call ID " + callId + " not found.");
         }
-        this.currentCall = Optional.empty();
     }
 
     public void onByeReceived(ByeMessage sipMessage) {
-        String fromName = sipMessage.getFromName().toLowerCase();
-        if (currentCall.isPresent()) {
-            Call call = currentCall.get();
+        String callId = sipMessage.getCallId();
+        Call call = activeCalls.get(callId);
+        
+        if (call != null) {
+            String fromName = sipMessage.getFromName().toLowerCase();
             if (call.caller.user.equals(fromName)) {
                 // Caller ended the call
-                callerEndedCall(sipMessage);
+                forwardBye(sipMessage, call.callee);
                 System.out.println("Caller " + fromName + " ended the call.");
             } else if (call.callee.user.equals(fromName)) {
                 // Callee ended the call
+                forwardBye(sipMessage, call.caller);
                 System.out.println("Callee " + fromName + " ended the call.");
-                calleeEndedCall(sipMessage);
             } else {
                 System.err.println("Received BYE from unknown user: " + fromName);
             }
+            activeCalls.remove(callId);
         } else {
-            System.err.println("Received BYE but there is no active call.");
+            System.err.println("Received BYE but there is no active call for ID: " + callId);
+        }
+    }
+    
+    private void forwardBye(ByeMessage byeMessage, Registration target) {
+        try {
+            transactionLayer.sendResponse(byeMessage, target.ip, target.port);
+        } catch (IOException e) {
+            System.err.println("Failed to forward BYE: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -219,7 +233,7 @@ public class ProxyUserLayer {
         for (String user : users) {
             if (!isUserRegisterd(user)) return false;
         }
-        return true; // All users are registered
+        return true; 
     }
 
     private boolean isUserRegisterd(String user) {
