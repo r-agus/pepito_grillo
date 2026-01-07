@@ -68,7 +68,7 @@ public class UaUserLayer {
     private InviteMessage lastInvite;
     private Process vitextClient = null;
     private Process vitextServer = null;
-
+    private boolean amICaller = false;
     private volatile boolean shouldExit = false;
 
     public UaUserLayer(String sipUser, int listenPort, String proxyAddress, int proxyPort, int resendTime)
@@ -192,7 +192,7 @@ public class UaUserLayer {
     }
 
     public void onInviteOKResponse(SIPMessage sipMessage) {
-        if (DEBUG) System.out.println("[DEBUG] Received OK response for INVITE");
+        System.out.println("Received OK response for INVITE from " + sipMessage.getFromName());
     }
 
     public void onInviteNotFoundResponse(NotFoundMessage sipMessage) {
@@ -201,14 +201,22 @@ public class UaUserLayer {
     }
 
     public void onInviteBusyHereResponse(BusyHereMessage sipMessage) {
-        System.err.print("Could not contact: " + sipMessage.getToName() + " (busy).");
+        System.err.println("Could not contact: " + sipMessage.getToName() + " (busy).");
         stopVitextClient();
     }
 
     public void onInviteReceived(InviteMessage inviteMessage) throws IOException {
+        amICaller = false;
         System.out.println("Received INVITE from " + inviteMessage.getFromName());
-        this.lastInvite = inviteMessage;
+        
+        // Auto-answer
+        SDPMessage sdpMessage = new SDPMessage();
+        sdpMessage.setIp(this.myAddress);
+        sdpMessage.setPort(this.rtpPort);
+        sdpMessage.setOptions(RTPFLOWS);
+        transactionLayer.answerCall(sdpMessage, getContactUri());
         runVitextServer();
+        this.lastInvite = inviteMessage;
     }
 
     public void onByeReceived(ByeMessage byeMessage){
@@ -261,6 +269,32 @@ public class UaUserLayer {
             } else {
                 System.err.println("Cannot INVITE while not registered");
             }
+        } else if (line.toLowerCase().equals("answer")) {
+            SDPMessage sdpMessage = new SDPMessage();
+            sdpMessage.setIp(this.myAddress);
+            sdpMessage.setPort(this.rtpPort);
+            sdpMessage.setOptions(RTPFLOWS);
+            transactionLayer.answerCall(sdpMessage, getContactUri());
+            runVitextServer();
+        } else if (line.toLowerCase().equals("bye")) {
+            if (lastInvite != null) {
+                try {
+                    ByeMessage byeMessage;
+                    if (amICaller) {
+                        byeMessage = lastInvite.createByeMessageFromCaller();
+                    } else {
+                        byeMessage = lastInvite.createByeMessageFromCallee();
+                    }
+                    System.out.println("Sending BYE...");
+                    transactionLayer.sendBye(byeMessage);
+                    stopVitextClient();
+                    if (vitextServer != null) vitextServer.destroy();
+                } catch (IOException e) {
+                    System.err.println("Failed to send BYE: " + e.getMessage());
+                }
+            } else {
+                 System.out.println("No active call to hang up.");
+            }
         } else if (line.toLowerCase().equals("exit")) {
             shouldExit = true;
             terminate();
@@ -300,7 +334,7 @@ public class UaUserLayer {
         inviteMessage.setMaxForwards(70);
         inviteMessage.setToName(to);
         inviteMessage.setToUri("sip:" + to + "@SMA");
-        inviteMessage.setFromName(sipUser);
+        inviteMessage.setFromName(sipUserName);
         inviteMessage.setFromUri(sipUserUri);
         inviteMessage.setCallId(callId);
         inviteMessage.setcSeqNumber("1");
@@ -310,11 +344,16 @@ public class UaUserLayer {
         inviteMessage.setContentLength(sdpMessage.toStringMessage().getBytes().length);
         inviteMessage.setSdp(sdpMessage);
         this.lastInvite = inviteMessage;
+        this.amICaller = true;
 
         transactionLayer.call(inviteMessage);
     }
 
     private void runVitextClient() throws IOException {
+        if (TEST_MODE) {
+            System.out.println("[TEST_MODE] Skipping Vitext Client launch.");
+            return;
+        }
         vitextClient = TerminalLauncher.startInTerminal(
             Arrays.asList(
                 "vitext/vitextclient",
@@ -354,6 +393,10 @@ public class UaUserLayer {
     }
 
     private void runVitextServer() throws IOException {
+        if (TEST_MODE) {
+            System.out.println("[TEST_MODE] Skipping Vitext Server launch.");
+            return;
+        }
         vitextServer = TerminalLauncher.startInTerminal(
             Arrays.asList(
                 "vitext/vitextserver",
@@ -420,8 +463,12 @@ public class UaUserLayer {
         return sipUri.startsWith("sip:") ? sipUri.substring(4) : sipUri;
     }
 
-    private String buildContactUri() {
+    public String getContactUri() {
         return extractUser(sipUserUri) + "@" + myAddress + ":" + listenPort;
+    }
+
+    private String buildContactUri() {
+        return getContactUri();
     }
 
     private void terminate(String reason) {
