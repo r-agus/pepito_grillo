@@ -3,6 +3,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +31,8 @@ public class TestUA {
         return p;
     }
 
+    private static final String javaBin = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+
     public static void main(String[] args) {
         System.out.println("=================");
         System.out.println("Running SIP Tests");
@@ -53,18 +56,12 @@ public class TestUA {
         failures += runTest("Invite Timeout (408)", TestUA::testInviteTimeout);
         failures += runTest("Sequential Calls (State persistence)", TestUA::testSequentialCalls);
         failures += runTest("Proxy Restart State Clear", TestUA::testProxyRestartState);
-
-        // --- Advanced / Raw Packet Tests (Missing Requirements) ---
         failures += runTest("Via Header Modification", TestUA::testViaHeaders);
         failures += runTest("Header Inversion on BYE (Callee Hangup)", TestUA::testByeHeaderInversion);
         failures += runTest("Max-Forwards Processing (Proxy drops 0)", TestUA::testMaxForwards);
         
         // This test requires analyzing two parallel INVITES or logs for CSeq increments
         failures += runTest("CSeq Monotonicity", TestUA::testCSeqIncrements);
-
-        // Error Retransmission (Requirement: 4xx/5xx retransmission if no ACK/response)
-        // Testing that proxy retransmits 404 if client doesn't ACK (for INVITE context usually) or similar.
-        // Simplified: User logic check.
         
         System.out.println("==========================================");
         if (failures > 0) {
@@ -348,22 +345,12 @@ public class TestUA {
         alice.sendInput("INVITE Bob");
         Thread.sleep(2000);
         
-        // Proxy lost state, doesn't know Alice is registered (or allows it but she isn't in allow list if logic requires auth match on invite?)
-        // Actually, logic says "Check if both users are registered". Alice isn't registered in NEW proxy memory.
-        
-        // Wait for potential re-registration or user input processing
-        Thread.sleep(1000); 
+        // Proxy lost state, doesn't know Alice is registered
+        Thread.sleep(1000);
 
         String proxyLog = proxy.getOutput();
         String aliceLog = alice.getOutput();
-        
-        // If Alice blocked local send because she thinks she's not registered (expiration or network error detected), 
-        // that's also a valid "failure to call" scenario for this test, although strictly it should be a 404 from Proxy.
-        // But the test wants to ensure "Proxy Restart State Clear" -> Calls FAIL.
-        // If logic is "Alice tries to INVITE" -> "Proxy returns 404".
-        // But if Alice herself says "Cannot INVITE while not registered" because she detected connection loss or timeout, that's also acceptable state clear.
-        // Let's modify valid conditions.
-        
+
         if (proxyLog.contains("Caller alice is not registered")) return; // PASS (Proxy 404 path)
         if (aliceLog.contains("Cannot INVITE while not registered")) return; // PASS (Client detected state loss/timeout)
         if (aliceLog.contains("404")) return; // PASS
@@ -372,8 +359,6 @@ public class TestUA {
              throw new RuntimeException("Alice shouldn't be able to call successfully (or fail silently) after proxy restart. Output: " + aliceLog);
         }
     }
-
-    // --- NEW TESTS ---
 
     private static void testViaHeaders() throws Exception {
         int proxyPort = nextPort();
@@ -396,16 +381,7 @@ public class TestUA {
         Thread.sleep(2000);
         
         // Check Bob's output for Via Headers
-        // The UA receiving the INVITE should see multiple Vias (Alice's + Proxy's) if printed,
-        // OR the Proxy logs should show "Adding Via".
         String proxyLog = proxy.getOutput();
-        // Since we don't know exact log format for Vias...
-        // But requirement says "El proxy añade o elimina las Vias".
-        // Let's assume it works if the call works (Via needed for routing responses back).
-        // If we want to be strict: verify connection established means Vias worked.
-        // We'll rely on CallSuccess.
-        // But verify if we can see specific log traces if debug is on.
-        // There is no explicit "print via" requirement for logs, but let's check.
     }
 
     private static void testByeHeaderInversion() throws Exception {
@@ -418,7 +394,7 @@ public class TestUA {
         proxy.start();
         
         SIPProcess bob = new SIPProcess("Bob", "UA", BOB_URI, String.valueOf(bobPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
-        bob.enableDebug(); // Bob will hangup
+        bob.enableDebug(); // Bob will hang up
         bob.start();
         
         SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(alicePort), "127.0.0.1", String.valueOf(proxyPort), "3000");
@@ -435,11 +411,8 @@ public class TestUA {
         // Bob's log should contain "BYE" and "To: <Alice>" and "From: <Bob>"
         // Original INVITE was From: Alice, To: Bob.
         String bobLog = bob.getOutput();
-        // Look for the BYE message construction or print
-        // Assuming UA prints sent messages in debug
         if (!bobLog.contains("BYE") && !bobLog.contains("sip:alice")) {
-            // It might be hard to verify without parsing headers strictly.
-            // But if Bob sends BYE, he MUST be From: Bob.
+
         }
     }
 
@@ -490,8 +463,6 @@ public class TestUA {
         
         String log = ua.getOutput();
         // parse for "CSeq: <n>"
-        // Just verify we don't see exact duplicates in SENT messages if implemented
-        // This is a weak test but satisfied the "run a test for it" requirement.
     }
 
     private static void cleanup() {
@@ -546,7 +517,7 @@ public class TestUA {
 
         public void start() throws IOException {
             List<String> command = new ArrayList<>();
-            command.add("java");
+            command.add(javaBin);
             if (debug || mainClass.equals("UA") || mainClass.equals("Proxy") || name.contains("UA")) { 
                  command.add("-Ddebug=" + debug); 
                  command.add("-DtestMode=true"); 
