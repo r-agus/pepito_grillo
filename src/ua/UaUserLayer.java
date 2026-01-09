@@ -231,9 +231,24 @@ public class UaUserLayer {
                 transactionLayer.sendMessageToProxy(ack);
             } else if (ok.getContact() != null) {
                 // send directly to contact
-                String[] parts = ok.getContact().split(":");
+                String contact = ok.getContact();
+                if (contact.startsWith("sip:")) {
+                    contact = contact.substring(4);
+                }
+                String[] parts = contact.split(":");
                 String addr = parts[0];
-                int port = Integer.parseInt(parts[1]);
+                int port = 5060; // Default SIP port
+                if (parts.length > 1) {
+                    try {
+                        port = Integer.parseInt(parts[1]);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Invalid port in contact: " + parts[1] + ", using default 5060");
+                    }
+                }
+                // Handle user@host
+                if (addr.contains("@")) {
+                    addr = addr.substring(addr.indexOf("@") + 1);
+                }
                 transactionLayer.sendMessageToAddress(ack, addr, port);
             } else {
                 // fallback: send to proxy
