@@ -15,6 +15,7 @@ import mensajesSIP.RegisterMessage;
 import mensajesSIP.RequestTimeoutMessage;
 import mensajesSIP.RingingMessage;
 import mensajesSIP.SDPMessage;
+import mensajesSIP.ServiceUnavailableMessage;
 import mensajesSIP.SIPMessage;
 
 public class UaTransactionLayer {
@@ -114,6 +115,10 @@ public class UaTransactionLayer {
             } else if (sipMessage instanceof RequestTimeoutMessage) {
                 if (callingTimeoutFuture != null) callingTimeoutFuture.cancel(false);
                 System.out.println("Call timed out (408).");
+                state = State.IDLE;
+            } else if (sipMessage instanceof ServiceUnavailableMessage) {
+                if (callingTimeoutFuture != null) callingTimeoutFuture.cancel(false);
+                userLayer.onInviteServiceUnavailableResponse((ServiceUnavailableMessage) sipMessage);
                 state = State.IDLE;
             }
         } else if (sipMessage instanceof ByeMessage) {

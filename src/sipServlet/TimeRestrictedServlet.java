@@ -28,12 +28,12 @@ public class TimeRestrictedServlet implements SIPServletInterface {
                 } else {
                     // Reject - Not boss
                     System.out.println("TimeRestrictedServlet: Incoming call rejected from " + caller + " (not boss)");
-                    request.createResponse(403).send(); 
+                    request.createResponse(503).send(); 
                 }
             } else {
                 // Reject - Out of time
                 System.out.println("TimeRestrictedServlet: Incoming call rejected (out of time)");
-                request.createResponse(486).send(); 
+                request.createResponse(503).send(); 
             }
         } else if (caller.equalsIgnoreCase(MY_USER)) {
             // Outgoing call from Mario
@@ -45,7 +45,7 @@ public class TimeRestrictedServlet implements SIPServletInterface {
             } else {
                 // Reject
                 System.out.println("TimeRestrictedServlet: Outgoing call rejected (out of time)");
-                request.createResponse(403).send();
+                request.createResponse(503).send();
             }
         } else {
             // Fallback

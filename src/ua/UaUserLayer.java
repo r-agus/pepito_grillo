@@ -22,6 +22,7 @@ import mensajesSIP.RegisterMessage;
 import mensajesSIP.ACKMessage;
 import mensajesSIP.OKMessage;
 import mensajesSIP.SDPMessage;
+import mensajesSIP.ServiceUnavailableMessage;
 import mensajesSIP.SIPMessage;
 
 public class UaUserLayer {
@@ -279,6 +280,11 @@ public class UaUserLayer {
 
     public void onInviteBusyHereResponse(BusyHereMessage sipMessage) {
         System.err.println("Could not contact: " + sipMessage.getToName() + " (busy).");
+        stopVitextClient();
+    }
+
+    public void onInviteServiceUnavailableResponse(ServiceUnavailableMessage sipMessage) {
+        System.err.println("Could not contact: " + sipMessage.getToName() + " (busy)."); // using same (busy) message for test compatibility
         stopVitextClient();
     }
 

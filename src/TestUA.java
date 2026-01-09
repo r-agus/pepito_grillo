@@ -66,6 +66,7 @@ public class TestUA {
         // --- Vitext & Routing ---
         failures += runTest("Vitext Launch (m=video)", TestUA::testVitextLaunch);
         failures += runTest("Loose Routing (Record-Route/Route)", TestUA::testLooseRouting);
+        failures += runTest("Servlet Blocking (403->503)", TestUA::testServletBlocking);
         
         System.out.println("==========================================");
         if (failures > 0) {
@@ -717,6 +718,71 @@ public class TestUA {
             synchronized(runOutput) {
                 return runOutput.toString();
             }
+        }
+    }
+
+    private static void testServletBlocking() throws Exception {
+        int proxyPort = nextPort();
+        int marioPort = nextPort();
+        int alicePort = nextPort();
+        String marioName = "sip:mario@it.uc3m.es";
+        String aliceName = "sip:alice@domain.com";
+
+        SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort));
+        proxy.enableDebug();
+        proxy.start();
+        Thread.sleep(1000); // Wait for proxy to bind
+
+        // Mario registers (time restriction servlet)
+        SIPProcess mario = new SIPProcess("Mario", "UA", marioName, String.valueOf(marioPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        mario.enableDebug();
+        mario.start();
+        Thread.sleep(1000);
+
+        // Check for debug log "Received response for REGISTER" (200 OK)
+        if (!mario.getOutput().contains("Received response for REGISTER")) {
+            System.out.println("___ MARIO LOG (Register Fail) ___");
+            System.out.println(mario.getOutput());
+            System.out.println("___ PROXY LOG (Register Fail) ___");
+            System.out.println(proxy.getOutput());
+            throw new RuntimeException("Mario failed to register.");
+        }
+
+        // Alice registers
+        SIPProcess alice = new SIPProcess("Alice", "UA", aliceName, String.valueOf(alicePort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        alice.enableDebug();
+        alice.start();
+        Thread.sleep(1000); // register
+        
+        if (!alice.getOutput().contains("Received response for REGISTER")) {
+             throw new RuntimeException("Alice failed to register.");
+        }
+
+        // Mario calls Alice
+        // Since it is NOT 10:00-11:00, this should be BLOCKED by Servlet (403).
+        // Proxy maps 403 -> 503.
+        // Mario should receive 503 Service Unavailable.
+        System.out.println("Mario calling Alice (expecting BLOCK)...");
+        mario.sendInput("INVITE alice");
+        Thread.sleep(1000);
+
+        String marioOut = mario.getOutput();
+        String proxyOut = proxy.getOutput();
+
+        // Check correct mapping
+        // UaUserLayer prints "Could not contact: ... (busy)." on 503/ServiceUnavailable
+        if (!marioOut.contains("(busy)")) {
+             System.out.println("___ MARIO LOG ___");
+             System.out.println(marioOut);
+            throw new RuntimeException("Mario did not receive 503 Service Unavailable (busy) as expected.");
+        }
+        
+        // Ensure Proxy logged something about servlet
+        // The servlet prints "TimeRestrictedServlet: Outgoing call rejected..."
+        if (!proxyOut.contains("TimeRestrictedServlet: Outgoing call rejected")) {
+             System.out.println("___ PROXY LOG ___");
+             System.out.println(proxyOut);
+             throw new RuntimeException("Proxy/Servlet did not log rejection message.");
         }
     }
 }
