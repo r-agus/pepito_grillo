@@ -129,6 +129,7 @@ public class ProxyUserLayer {
 
         // Forward INVITE to callee
         Registration calleeReg = registeredUsers.get(toName);
+        inviteMessage.addVia(transactionLayer.getListeningAddress() + ":" + transactionLayer.getListeningPort());
         transactionLayer.forwardInvite(inviteMessage, calleeReg.ip, calleeReg.port);
     }
 
@@ -137,7 +138,18 @@ public class ProxyUserLayer {
         if (call != null) {
             InviteMessage inviteMessage = call.inviteMessage;
             ArrayList<String> vias = inviteMessage.getVias();
-            String origin = vias.get(0);
+            
+            // If the first Via is the Proxy itself, skip it to find the caller
+            int viaIndex = 0;
+            String origin = vias.get(viaIndex);
+
+            // Check if origin corresponds to this Proxy
+            String mySign = transactionLayer.getListeningAddress() + ":" + transactionLayer.getListeningPort();
+            if (origin.equals(mySign) && vias.size() > 1) {
+                 viaIndex = 1;
+                 origin = vias.get(viaIndex);
+            }
+
             String[] originParts = origin.split(":");
             String originAddress = originParts[0];
             int originPort = Integer.parseInt(originParts[1]);
