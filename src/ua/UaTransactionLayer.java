@@ -172,6 +172,16 @@ public class UaTransactionLayer {
         sendMessage(byeMessage);
     }
 
+    // Send arbitrary message to proxy
+    public void sendMessageToProxy(SIPMessage message) throws IOException {
+        transportLayer.sendToProxy(message);
+    }
+
+    // Send arbitrary message directly to an IP:port
+    public void sendMessageToAddress(SIPMessage message, String address, int port) throws IOException {
+        transportLayer.send(message, address, port);
+    }
+
     public void terminate() {
         if (callingTimeoutFuture != null && !callingTimeoutFuture.isDone()) {
             callingTimeoutFuture.cancel(false);

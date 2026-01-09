@@ -19,6 +19,8 @@ import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.NotFoundMessage;
 import mensajesSIP.RegisterMessage;
+import mensajesSIP.ACKMessage;
+import mensajesSIP.OKMessage;
 import mensajesSIP.SDPMessage;
 import mensajesSIP.SIPMessage;
 
@@ -195,7 +197,52 @@ public class UaUserLayer {
     }
 
     public void onInviteOKResponse(SIPMessage sipMessage) {
-        System.out.println("Received OK response for INVITE from " + sipMessage.getFromName());
+        if (DEBUG) System.out.println("[DEBUG] Received OK response for INVITE");
+        OKMessage ok = (OKMessage) sipMessage;
+
+        // If the OK carries Record-Route this means loose routing is active
+        String recordRoute = ok.getRecordRoute();
+        if (recordRoute != null) {
+            // save recordRoute for in-dialog requests (BYE)
+            if (this.lastInvite != null) {
+                this.lastInvite.setRecordRoute(recordRoute);
+            }
+        }
+
+        // Build ACK and send either via proxy (loose routing) or directly to contact (end-to-end)
+        try {
+            ACKMessage ack = new ACKMessage();
+            ack.setDestination(ok.getToUri());
+            ack.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
+            if (recordRoute != null) {
+                ack.setRoute(recordRoute);
+            }
+            ack.setMaxForwards(70);
+            ack.setToName(ok.getToName());
+            ack.setToUri(ok.getToUri());
+            ack.setFromName(ok.getFromName());
+            ack.setFromUri(ok.getFromUri());
+            ack.setCallId(ok.getCallId());
+            ack.setcSeqNumber(ok.getcSeqNumber());
+            ack.setcSeqStr("ACK");
+
+            if (recordRoute != null) {
+                // send via proxy so proxy will forward along the recorded route
+                transactionLayer.sendMessageToProxy(ack);
+            } else if (ok.getContact() != null) {
+                // send directly to contact
+                String[] parts = ok.getContact().split(":");
+                String addr = parts[0];
+                int port = Integer.parseInt(parts[1]);
+                transactionLayer.sendMessageToAddress(ack, addr, port);
+            } else {
+                // fallback: send to proxy
+                transactionLayer.sendMessageToProxy(ack);
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to send ACK: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public void onInviteNotFoundResponse(NotFoundMessage sipMessage) {

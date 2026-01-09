@@ -2,6 +2,7 @@ package proxy;
 
 import java.io.IOException;
 import java.net.SocketException;
+import mensajesSIP.ACKMessage;
 import mensajesSIP.BusyHereMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
@@ -42,7 +43,8 @@ public class ProxyTransactionLayer {
     }
 
     public void onMessageReceived(SIPMessage sipMessage) throws IOException, SIPException {
-        if (sipMessage instanceof RegisterMessage registerMessage) {
+        if (sipMessage instanceof RegisterMessage ) {
+            RegisterMessage registerMessage = (RegisterMessage) sipMessage;
             userLayer.onRegisterReceived(registerMessage);
         } else if (sipMessage instanceof InviteMessage) {
             InviteMessage inviteMessage = (InviteMessage) sipMessage;
@@ -63,6 +65,9 @@ public class ProxyTransactionLayer {
             userLayer.onRingingReceived((RingingMessage) sipMessage);
         } else if (sipMessage instanceof RequestTimeoutMessage) {
             userLayer.onRequestTimeoutReceived((RequestTimeoutMessage) sipMessage);
+        } else if (sipMessage instanceof ACKMessage) {
+            ACKMessage ack = (ACKMessage) sipMessage;
+            userLayer.onAckReceived(ack);
         } else if (sipMessage instanceof NotFoundMessage) {
             userLayer.onInviteNotFoundReceived((NotFoundMessage) sipMessage); 
         } else if (sipMessage instanceof BusyHereMessage) {
@@ -83,14 +88,17 @@ public class ProxyTransactionLayer {
     }
 
     public void echoInvite(InviteMessage inviteMessage, String address, int port) throws IOException {
+        System.out.println("[TRANSACTION] echoInvite -> " + address + ":" + port + "\n" + inviteMessage.toStringMessage());
         transportLayer.send(inviteMessage, address, port);
     }
 
     public void forwardInvite(InviteMessage inviteMessage, String address, int port) throws IOException {
+        System.out.println("[TRANSACTION] forwardInvite -> " + address + ":" + port + "\n" + inviteMessage.toStringMessage());
         transportLayer.send(inviteMessage, address, port);
     }
 
     public void sendResponse(SIPMessage response, String address, int port) throws IOException {
+        System.out.println("[TRANSACTION] sendResponse -> " + address + ":" + port + "\n" + response.toStringMessage());
         transportLayer.send(response, address, port);
     }
 
