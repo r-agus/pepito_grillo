@@ -731,7 +731,7 @@ public class TestUA {
         SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort));
         proxy.enableDebug();
         proxy.start();
-        Thread.sleep(1000); // Wait for proxy to bind
+        Thread.sleep(1000);
 
         // Mario registers (time restriction servlet)
         SIPProcess mario = new SIPProcess("Mario", "UA", marioName, String.valueOf(marioPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
@@ -760,7 +760,6 @@ public class TestUA {
 
         // Mario calls Alice
         // Since it is NOT 10:00-11:00, this should be BLOCKED by Servlet (403).
-        // Proxy maps 403 -> 503.
         // Mario should receive 503 Service Unavailable.
         System.out.println("Mario calling Alice (expecting BLOCK)...");
         mario.sendInput("INVITE alice");
@@ -769,15 +768,13 @@ public class TestUA {
         String marioOut = mario.getOutput();
         String proxyOut = proxy.getOutput();
 
-        // Check correct mapping
-        // UaUserLayer prints "Could not contact: ... (busy)." on 503/ServiceUnavailable
+        // UaUserLayer prints "Could not contact: ... (service unavailable)." on 503/ServiceUnavailable
         if (!marioOut.contains("(service unavailable)")) {
              System.out.println("___ MARIO LOG ___");
              System.out.println(marioOut);
             throw new RuntimeException("Mario did not receive 503 Service Unavailable as expected.");
         }
         
-        // Ensure Proxy logged something about servlet
         // The servlet prints "TimeRestrictedServlet: Outgoing call rejected..."
         if (!proxyOut.contains("TimeRestrictedServlet: Outgoing call rejected")) {
              System.out.println("___ PROXY LOG ___");
