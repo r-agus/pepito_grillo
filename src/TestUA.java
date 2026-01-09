@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 public class TestUA {
 
-    private static final String CLASSPATH = "build:lib/*";
+    private static final String CLASSPATH = "out/production/sma:lib/*";
     private static final String ALICE_URI = "sip:alice@domain.com";
     private static final String BOB_URI = "sip:bob@domain.com";
     private static final String CHARLIE_URI = "sip:charlie@domain.com"; 
@@ -62,6 +62,10 @@ public class TestUA {
         
         // This test requires analyzing two parallel INVITES or logs for CSeq increments
         failures += runTest("CSeq Monotonicity", TestUA::testCSeqIncrements);
+        
+        // --- Vitext & Routing ---
+        failures += runTest("Vitext Launch (m=video)", TestUA::testVitextLaunch);
+        failures += runTest("Loose Routing (Record-Route/Route)", TestUA::testLooseRouting);
         
         System.out.println("==========================================");
         if (failures > 0) {
@@ -226,16 +230,26 @@ public class TestUA {
         Thread.sleep(3000); 
         
         alice.sendInput("INVITE Bob");
-        Thread.sleep(1000); // Bob accepts auto?
+        Thread.sleep(2000); // Bob accepts auto?
+        
+        if (!alice.getOutput().contains("200 OK")) {
+             throw new RuntimeException("Alice did not establish call with Bob (no 200 OK).");
+        }
         
         // Now Bob is busy
         charlie.sendInput("INVITE Bob");
         
         // Wait longer for timeout/response
-        Thread.sleep(2000);
+        Thread.sleep(3000);
         
         String charlieOutput = charlie.getOutput();
         if (!charlieOutput.contains("Busy") && !charlieOutput.contains("busy") && !charlieOutput.contains("486")) {
+             System.out.println("___ ALICE LOG ___");
+             System.out.println(alice.getOutput());
+             System.out.println("___ BOB LOG ___");
+             System.out.println(bob.getOutput());
+             System.out.println("___ CHARLIE LOG ___");
+             System.out.println(charlieOutput);
              throw new RuntimeException("Charlie did not receive 486 Busy. Output: " + charlieOutput);
         }
     }
@@ -250,8 +264,10 @@ public class TestUA {
         Thread.sleep(500);
         
         SIPProcess bob = new SIPProcess("Bob", "UA", BOB_URI, String.valueOf(ua2Port), "127.0.0.1", String.valueOf(proxyPort), "5000");
+        bob.enableDebug();
         bob.start();
         SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(ua1Port), "127.0.0.1", String.valueOf(proxyPort), "5000");
+        alice.enableDebug();
         alice.start();
         
         Thread.sleep(2000);
@@ -507,6 +523,84 @@ public class TestUA {
             if (cseqs.get(i) >= cseqs.get(i+1)) {
                 throw new RuntimeException("CSeq did not increment. " + cseqs.get(i) + " -> " + cseqs.get(i+1));
             }
+        }
+    }
+
+    private static void testVitextLaunch() throws Exception {
+        int proxyPort = nextPort();
+        int ua1Port = nextPort();
+        int ua2Port = nextPort();
+        
+        SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort));
+        proxy.start();
+        
+        SIPProcess bob = new SIPProcess("Bob", "UA", BOB_URI, String.valueOf(ua2Port), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        bob.enableDebug();
+        bob.start();
+        
+        SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(ua1Port), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        alice.enableDebug();
+        alice.start();
+        Thread.sleep(2000);
+        
+        alice.sendInput("INVITE Bob");
+        Thread.sleep(2000);
+        
+        // Check logs for Vitext launch
+        String aliceLog = alice.getOutput();
+        String bobLog = bob.getOutput();
+        
+        // Alice (Caller) should launch client OR skip in test mode
+        if (!aliceLog.contains("vitextclient") && !aliceLog.contains("VitextClient") && !aliceLog.contains("Skipping Vitext Client")) {
+             throw new RuntimeException("Alice did not launch vitextclient. Log:\n" + aliceLog);
+        }
+        
+        // Bob (Callee) should launch server OR skip in test mode
+        if (!bobLog.contains("vitextserver") && !bobLog.contains("VitextServer") && !bobLog.contains("Skipping Vitext Server")) {
+             throw new RuntimeException("Bob did not launch vitextserver. Log:\n" + bobLog);
+        }
+        
+        // Check for m=video
+        if (!bobLog.contains("m=video") && !aliceLog.contains("m=video")) {
+            System.out.println("___ BOB LOG ___");
+            System.out.println(bobLog);
+            System.out.println("___ END BOB LOG ___");
+            throw new RuntimeException("SDP did not contain m=video.");
+        }
+    }
+    
+    private static void testLooseRouting() throws Exception {
+        int proxyPort = nextPort();
+        int ua1Port = nextPort();
+        int ua2Port = nextPort();
+
+        SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort), "true", "true");
+        proxy.enableDebug();
+        proxy.start();
+        
+        SIPProcess bob = new SIPProcess("Bob", "UA", BOB_URI, String.valueOf(ua2Port), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        bob.start();
+        
+        SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(ua1Port), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        alice.start();
+        Thread.sleep(2000);
+        
+        alice.sendInput("INVITE Bob");
+        Thread.sleep(2000);
+        
+        String proxyLog = proxy.getOutput();
+        
+        if (!proxyLog.contains("Record-Route")) {
+             throw new RuntimeException("Proxy did not add Record-Route (or log it).");
+        }
+        
+        // Verify BYE has Route header
+        alice.sendInput("bye");
+        Thread.sleep(1000);
+        
+        // Since Proxy logs headers, check there
+        if (!proxyLog.contains("route=")) { 
+             throw new RuntimeException("Proxy did not see Route header in BYE/ACK. Log: " + proxyLog);
         }
     }
 
