@@ -3,13 +3,13 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 
 public class TestUA {
 
@@ -223,7 +223,7 @@ public class TestUA {
         charlie.enableDebug();
         charlie.start();
         
-        Thread.sleep(2000); 
+        Thread.sleep(3000); 
         
         alice.sendInput("INVITE Bob");
         Thread.sleep(1000); // Bob accepts auto?
@@ -381,7 +381,27 @@ public class TestUA {
         Thread.sleep(2000);
         
         // Check Bob's output for Via Headers
-        String proxyLog = proxy.getOutput();
+        // Look for log "IN_DEBUG_VIAS [via1, via2]"
+        String bobLog = bob.getOutput();
+        
+        // Check for Proxy Port in log
+        String debugLine = "";
+        String[] lines = bobLog.split("\n");
+        for (String l : lines) {
+            if (l.contains("IN_DEBUG_VIAS")) {
+                debugLine = l;
+                break;
+            }
+        }
+        
+        if (debugLine.isEmpty()) {
+            throw new RuntimeException("Bob missed Vias log.");
+        }
+        
+        // Ensure Proxy added its trace
+        if (!debugLine.contains(String.valueOf(proxyPort))) {
+             throw new RuntimeException("Via headers do not contain Proxy trace (" + proxyPort + "). Line: " + debugLine);
+        }
     }
 
     private static void testByeHeaderInversion() throws Exception {
@@ -409,10 +429,16 @@ public class TestUA {
         Thread.sleep(1000);
         
         // Bob's log should contain "BYE" and "To: <Alice>" and "From: <Bob>"
-        // Original INVITE was From: Alice, To: Bob.
         String bobLog = bob.getOutput();
-        if (!bobLog.contains("BYE") && !bobLog.contains("sip:alice")) {
-
+        if (!bobLog.contains("DEBUG_BYE")) {
+             throw new RuntimeException("Debug BYE log missing");
+        }
+        
+        boolean hasFromBob = bobLog.contains("From:") && (bobLog.contains(BOB_URI) || bobLog.toLowerCase().contains("sip:bob"));
+        boolean hasToAlice = bobLog.contains("To:") && (bobLog.contains(ALICE_URI) || bobLog.toLowerCase().contains("sip:alice"));
+        
+        if (!hasFromBob || !hasToAlice) {
+             throw new RuntimeException("BYE headers missing expected URIs (From=Bob, To=Alice). Log: " + bobLog);
         }
     }
 
@@ -462,7 +488,26 @@ public class TestUA {
         Thread.sleep(500);
         
         String log = ua.getOutput();
-        // parse for "CSeq: <n>"
+        List<Integer> cseqs = new ArrayList<>();
+        // Look for DEBUG_INVITE_CSEQ <n>
+        String[] lines = log.split("\n");
+        for (String l : lines) {
+            if (l.contains("DEBUG_INVITE_CSEQ")) {
+                try {
+                    String[] parts = l.split(" ");
+                    String num = parts[parts.length-1].trim();
+                    cseqs.add(Integer.parseInt(num));
+                } catch(Exception e) {}
+            }
+        }
+        
+        if (cseqs.size() < 2) throw new RuntimeException("Not enough INVITES sent to verify CSeq. Found: " + cseqs.size());
+        
+        for (int i = 0; i < cseqs.size() - 1; i++) {
+            if (cseqs.get(i) >= cseqs.get(i+1)) {
+                throw new RuntimeException("CSeq did not increment. " + cseqs.get(i) + " -> " + cseqs.get(i+1));
+            }
+        }
     }
 
     private static void cleanup() {
