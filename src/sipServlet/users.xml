@@ -2,4 +2,5 @@
 	<user id="sip:mario@it.uc3m.es">
 		<Servlet-class name="sipServlet.TimeRestrictedServlet" />
 	</user>
+	<user id="sip:juana@it.sma.es"/>
 </users>

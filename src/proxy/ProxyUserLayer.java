@@ -6,6 +6,7 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,8 +63,9 @@ public class ProxyUserLayer {
     }
     
     private final ProxyTransactionLayer transactionLayer;
-    private final Set<String> allowedUsers = Set.of("alice", "bob", "mario", "boss", "charlie");
     private final Map<String, Registration> registeredUsers = new HashMap<>(); // To store registered users by their fromName without duplicates
+    
+    private Set<String> allowedUsers = new HashSet<>(Set.of("alice", "bob", "mario", "boss", "charlie"));
 
     private class Call {
         Registration caller;
@@ -96,6 +98,14 @@ public class ProxyUserLayer {
         }
 
         if (xmlStream == null) {
+            try {
+                xmlStream = new java.io.FileInputStream("src/sipServlet/users.xml");
+            } catch (java.io.FileNotFoundException e) {
+                System.err.println("users.xml not found in classpath using resource stream, trying filesystem...");
+            }
+        }
+        
+        if (xmlStream == null) {
             System.err.println("users.xml not found");
             return;
         }
@@ -108,6 +118,11 @@ public class ProxyUserLayer {
                 String id = user.getId();
                 String username = extractUserFromUri(id);
                 if (username != null) {
+                    // if getServletClass is null, add user to allowedUsers and ignore servlet
+                    if (user.getServletClass() == null) {
+                        allowedUsers.add(username.toLowerCase());
+                        continue;
+                    }
                     userServlets.put(username.toLowerCase(), user.getServletClass().getName());
                 }
             }

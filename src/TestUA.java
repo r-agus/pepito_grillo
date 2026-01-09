@@ -67,6 +67,7 @@ public class TestUA {
         failures += runTest("Vitext Launch (m=video)", TestUA::testVitextLaunch);
         failures += runTest("Loose Routing (Record-Route/Route)", TestUA::testLooseRouting);
         failures += runTest("Servlet Blocking (403->503)", TestUA::testServletBlocking);
+        failures += runTest("Juana Call (No Servlet)", TestUA::testJuanaCall);
         
         System.out.println("==========================================");
         if (failures > 0) {
@@ -780,6 +781,53 @@ public class TestUA {
              System.out.println("___ PROXY LOG ___");
              System.out.println(proxyOut);
              throw new RuntimeException("Proxy/Servlet did not log rejection message.");
+        }
+    }
+
+    private static void testJuanaCall() throws Exception {
+        int proxyPort = nextPort();
+        int juanaPort = nextPort();
+        int alicePort = nextPort();
+        String juanaName = "sip:juana@it.sma.es"; // From users.xml
+        String aliceName = "sip:alice@domain.com";
+
+        SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort));
+        proxy.start();
+        Thread.sleep(1000); 
+
+        // Juana registers (no servlet, but in users.xml)
+        SIPProcess juana = new SIPProcess("Juana", "UA", juanaName, String.valueOf(juanaPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        juana.enableDebug();
+        juana.start();
+        Thread.sleep(1000); 
+
+        if (!juana.getOutput().contains("Received response for REGISTER")) {
+             throw new RuntimeException("Juana failed to register. Output:\n" + juana.getOutput());
+        }
+
+        // Alice registers
+        SIPProcess alice = new SIPProcess("Alice", "UA", aliceName, String.valueOf(alicePort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        alice.enableDebug();
+        alice.start();
+        Thread.sleep(1000); 
+        
+        if (!alice.getOutput().contains("Received response for REGISTER")) {
+             throw new RuntimeException("Alice failed to register.");
+        }
+
+        System.out.println("Alice calling Juana (expecting SUCCESS + Vitext)...");
+        alice.sendInput("INVITE juana"); 
+
+        Thread.sleep(3000);
+
+        String aliceOut = alice.getOutput();
+
+        if (!aliceOut.contains("Received OK response")) {
+             System.out.println("___ ALICE LOG ___");
+             System.out.println(aliceOut);
+             System.out.println("___ PROXY LOG ___");
+             System.out.println(proxy.getOutput());
+            throw new RuntimeException("Alice did not receive 200 OK (Call failed).");
         }
     }
 }
