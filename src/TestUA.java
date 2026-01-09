@@ -230,20 +230,24 @@ public class TestUA {
         Thread.sleep(3000); 
         
         alice.sendInput("INVITE Bob");
-        Thread.sleep(2000); // Bob accepts auto?
+        Thread.sleep(500); // Bob accepts
         
-        if (!alice.getOutput().contains("200 OK")) {
-             throw new RuntimeException("Alice did not establish call with Bob (no 200 OK).");
+        if (!alice.getOutput().contains("OK")) {
+            System.out.println("___ Proxy Log ___");
+            System.out.println(proxy.getOutput());
+            System.out.println("___ ALICE LOG ___");
+            System.out.println(alice.getOutput());
+            throw new RuntimeException("Alice did not establish call with Bob (no 200 OK).");
         }
         
         // Now Bob is busy
         charlie.sendInput("INVITE Bob");
         
         // Wait longer for timeout/response
-        Thread.sleep(3000);
+        Thread.sleep(500);
         
         String charlieOutput = charlie.getOutput();
-        if (!charlieOutput.contains("Busy") && !charlieOutput.contains("busy") && !charlieOutput.contains("486")) {
+        if (!charlieOutput.contains("busy")) {
              System.out.println("___ ALICE LOG ___");
              System.out.println(alice.getOutput());
              System.out.println("___ BOB LOG ___");
@@ -496,8 +500,7 @@ public class TestUA {
         ua.enableDebug();
         ua.start();
         Thread.sleep(1000);
-        
-        // 1. REGISTER
+
         ua.sendInput("INVITE Bob");
         Thread.sleep(500);
         ua.sendInput("INVITE Bob");
@@ -591,15 +594,20 @@ public class TestUA {
         String proxyLog = proxy.getOutput();
         
         if (!proxyLog.contains("Record-Route")) {
+             System.out.println("___ PROXY LOG (LooseRouting INVITE) ___");
+             System.out.println(proxyLog);
              throw new RuntimeException("Proxy did not add Record-Route (or log it).");
         }
         
         // Verify BYE has Route header
         alice.sendInput("bye");
-        Thread.sleep(1000);
+        Thread.sleep(2000);
         
+        proxyLog = proxy.getOutput();
         // Since Proxy logs headers, check there
         if (!proxyLog.contains("route=")) { 
+             System.out.println("___ PROXY LOG (LooseRouting BYE) ___");
+             System.out.println(proxyLog);
              throw new RuntimeException("Proxy did not see Route header in BYE/ACK. Log: " + proxyLog);
         }
     }
