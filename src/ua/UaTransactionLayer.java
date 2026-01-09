@@ -6,6 +6,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import mensajesSIP.BusyHereMessage;
+import mensajesSIP.ACKMessage;
 import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.NotFoundMessage;
@@ -116,6 +117,20 @@ public class UaTransactionLayer {
             state = State.IDLE;
             userLayer.onByeReceived((ByeMessage) sipMessage);
             if (callingTimeoutFuture != null) callingTimeoutFuture.cancel(false);
+        } else if (sipMessage instanceof ACKMessage) {
+            ACKMessage ack = (ACKMessage) sipMessage;
+            if (state == State.IDLE) {
+                if (userLayer.isDebug()) {
+                    System.out.println("[DEBUG] Received ACK while IDLE, ignoring.");
+                }
+            } else if (currentInvite != null && !ack.getCallId().equals(currentInvite.getCallId())) {
+                System.err.println("Received ACK with mismatched Call-ID: " + ack.getCallId() + " (expected " + currentInvite.getCallId() + ")");
+            } else {
+                 if (userLayer.isDebug()) {
+                    System.out.println("[DEBUG] Received valid ACK, confirming call established.");
+                 }
+                 state = State.IN_CALL;
+            }
         } else {
             System.err.println("Unexpected message (not instance of InviteMessage or REGISTER response), throwing away");
             System.err.println("Message: " + sipMessage);
