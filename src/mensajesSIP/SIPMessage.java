@@ -32,6 +32,14 @@ public abstract class SIPMessage {
     public String getcSeqStr() {
         return cSeqStr;
     }
+
+    public String getFromName() {
+        return fromName;
+    }
+
+    public String getToName() {
+        return toName;
+    }
     
 /**
  * Convierte el mensaje en un String. Para ello concatena la informaciï¿½n de las cabeceras del mensaje.

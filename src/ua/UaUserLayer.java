@@ -19,7 +19,10 @@ import mensajesSIP.ByeMessage;
 import mensajesSIP.InviteMessage;
 import mensajesSIP.NotFoundMessage;
 import mensajesSIP.RegisterMessage;
+import mensajesSIP.ACKMessage;
+import mensajesSIP.OKMessage;
 import mensajesSIP.SDPMessage;
+import mensajesSIP.ServiceUnavailableMessage;
 import mensajesSIP.SIPMessage;
 
 public class UaUserLayer {
@@ -49,6 +52,7 @@ public class UaUserLayer {
     private ScheduledFuture<?> registrationTimeout, registrationRenewal;
 
     private boolean DEBUG = false;
+    private static final boolean TEST_MODE = Boolean.getBoolean("testMode");
     
     private Runnable renewRegister = () -> {
         registerResponseReceived = false;
@@ -65,9 +69,11 @@ public class UaUserLayer {
     };
 
     private InviteMessage lastInvite;
+    private int globalCSeq = 1;
+
     private Process vitextClient = null;
     private Process vitextServer = null;
-
+    private boolean amICaller = false;
     private volatile boolean shouldExit = false;
 
     public UaUserLayer(String sipUser, int listenPort, String proxyAddress, int proxyPort, int resendTime)
@@ -98,6 +104,7 @@ public class UaUserLayer {
     }
 
     public void setDebug(boolean debug) { this.DEBUG = debug; }
+    public boolean isDebug() { return DEBUG; }
 
     public void registerWithProxy() throws IOException {
         RegisterMessage registerMessage = new RegisterMessage();
@@ -109,7 +116,7 @@ public class UaUserLayer {
         registerMessage.setFromName(sipUserName);
         registerMessage.setFromUri(sipUserUri);
         registerMessage.setCallId(UUID.randomUUID().toString());
-        registerMessage.setcSeqNumber("1");
+        registerMessage.setcSeqNumber(String.valueOf(globalCSeq++));
         registerMessage.setcSeqStr("REGISTER");
         registerMessage.setContact(buildContactUri());
         registerMessage.setExpires(registerExpires);
@@ -192,22 +199,110 @@ public class UaUserLayer {
 
     public void onInviteOKResponse(SIPMessage sipMessage) {
         if (DEBUG) System.out.println("[DEBUG] Received OK response for INVITE");
+        OKMessage ok = (OKMessage) sipMessage;
+
+        // If the OK carries Record-Route this means loose routing is active
+        String recordRoute = ok.getRecordRoute();
+        if (recordRoute != null) {
+            // save recordRoute for in-dialog requests (BYE)
+            if (this.lastInvite != null) {
+                this.lastInvite.setRecordRoute(recordRoute);
+            }
+        }
+        
+        // Launch Vitext Client with SDP from OK
+        if (ok.getSdp() != null) {
+            try {
+                runVitextClient(ok.getSdp());
+            } catch (IOException e) {
+                System.err.println("Failed to launch vitext client: " + e.getMessage());
+            }
+        } else {
+            System.err.println("Received OK without SDP, cannot launch vitext client.");
+        }
+
+        // Build ACK and send either via proxy (loose routing) or directly to contact (end-to-end)
+        try {
+            ACKMessage ack = new ACKMessage();
+            ack.setDestination(ok.getToUri());
+            ack.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
+            if (recordRoute != null) {
+                ack.setRoute(recordRoute);
+            }
+            ack.setMaxForwards(70);
+            ack.setToName(ok.getToName());
+            ack.setToUri(ok.getToUri());
+            ack.setFromName(ok.getFromName());
+            ack.setFromUri(ok.getFromUri());
+            ack.setCallId(ok.getCallId());
+            ack.setcSeqNumber(ok.getcSeqNumber());
+            ack.setcSeqStr("ACK");
+
+            if (recordRoute != null) {
+                // send via proxy so proxy will forward along the recorded route
+                transactionLayer.sendMessageToProxy(ack);
+            } else if (ok.getContact() != null) {
+                // send directly to contact
+                String contact = ok.getContact();
+                if (contact.startsWith("sip:")) {
+                    contact = contact.substring(4);
+                }
+                String[] parts = contact.split(":");
+                String addr = parts[0];
+                int port = 5060; // Default SIP port
+                
+                if (parts.length > 1) {
+                    try {
+                        port = Integer.parseInt(parts[1]);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Invalid port in contact: " + parts[1] + ", using default 5060");
+                    }
+                }
+                // Handle user@host
+                if (addr.contains("@")) {
+                    addr = addr.substring(addr.indexOf("@") + 1);
+                }
+                transactionLayer.sendMessageToAddress(ack, addr, port);
+            } else {
+                // fallback: send to proxy
+                transactionLayer.sendMessageToProxy(ack);
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to send ACK: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public void onInviteNotFoundResponse(NotFoundMessage sipMessage) {
-        System.err.print("Could not contact: " + sipMessage.getToName() + " (not found).");
+        System.err.println("Could not contact: " + sipMessage.getToName() + " (not found).");
         stopVitextClient();
     }
 
     public void onInviteBusyHereResponse(BusyHereMessage sipMessage) {
-        System.err.print("Could not contact: " + sipMessage.getToName() + " (busy).");
+        System.err.println("Could not contact: " + sipMessage.getToName() + " (busy).");
+        stopVitextClient();
+    }
+
+    public void onInviteServiceUnavailableResponse(ServiceUnavailableMessage sipMessage) {
+        System.err.println("Could not contact: " + sipMessage.getToName() + " (service unavailable).");
         stopVitextClient();
     }
 
     public void onInviteReceived(InviteMessage inviteMessage) throws IOException {
+        amICaller = false;
         System.out.println("Received INVITE from " + inviteMessage.getFromName());
+        if (DEBUG) {
+            System.out.println("IN_DEBUG_VIAS " + inviteMessage.getVias());
+        }
+        
+        // Auto-answer
+        SDPMessage sdpMessage = new SDPMessage();
+        sdpMessage.setIp(this.myAddress);
+        sdpMessage.setPort(this.rtpPort);
+        sdpMessage.setOptions(RTPFLOWS);
+        transactionLayer.answerCall(sdpMessage, getContactUri());
+        runVitextServer(sdpMessage);
         this.lastInvite = inviteMessage;
-        runVitextServer();
     }
 
     public void onByeReceived(ByeMessage byeMessage){
@@ -260,6 +355,33 @@ public class UaUserLayer {
             } else {
                 System.err.println("Cannot INVITE while not registered");
             }
+        } else if (line.toLowerCase().equals("answer")) {
+            SDPMessage sdpMessage = new SDPMessage();
+            sdpMessage.setIp(this.myAddress);
+            sdpMessage.setPort(this.rtpPort);
+            sdpMessage.setOptions(RTPFLOWS);
+            transactionLayer.answerCall(sdpMessage, getContactUri());
+            runVitextServer(sdpMessage);
+        } else if (line.toLowerCase().equals("bye")) {
+            if (lastInvite != null) {
+                try {
+                    ByeMessage byeMessage;
+                    if (amICaller) {
+                        byeMessage = lastInvite.createByeMessageFromCaller();
+                    } else {
+                        byeMessage = lastInvite.createByeMessageFromCallee();
+                    }
+                    if (DEBUG) System.out.println("DEBUG_BYE " + byeMessage.toStringMessage());
+                    System.out.println("Sending BYE...");
+                    transactionLayer.sendBye(byeMessage);
+                    stopVitextClient();
+                    if (vitextServer != null) vitextServer.destroy();
+                } catch (IOException e) {
+                    System.err.println("Failed to send BYE: " + e.getMessage());
+                }
+            } else {
+                 System.out.println("No active call to hang up.");
+            }
         } else if (line.toLowerCase().equals("exit")) {
             shouldExit = true;
             terminate();
@@ -284,8 +406,6 @@ public class UaUserLayer {
 
         System.out.println("Inviting " + to + "...");
 
-        runVitextClient();
-
         String callId = UUID.randomUUID().toString();
 
         SDPMessage sdpMessage = new SDPMessage();
@@ -299,26 +419,36 @@ public class UaUserLayer {
         inviteMessage.setMaxForwards(70);
         inviteMessage.setToName(to);
         inviteMessage.setToUri("sip:" + to + "@SMA");
-        inviteMessage.setFromName(sipUser);
+        inviteMessage.setFromName(sipUserName);
         inviteMessage.setFromUri(sipUserUri);
         inviteMessage.setCallId(callId);
-        inviteMessage.setcSeqNumber("1");
+        inviteMessage.setcSeqNumber(String.valueOf(globalCSeq++));
         inviteMessage.setcSeqStr("INVITE");
         inviteMessage.setContact(myAddress + ":" + listenPort);
         inviteMessage.setContentType("application/sdp");
         inviteMessage.setContentLength(sdpMessage.toStringMessage().getBytes().length);
         inviteMessage.setSdp(sdpMessage);
         this.lastInvite = inviteMessage;
+        this.amICaller = true;
+        
+        if (DEBUG) System.out.println("DEBUG_INVITE_CSEQ " + inviteMessage.getcSeqNumber());
 
         transactionLayer.call(inviteMessage);
     }
 
-    private void runVitextClient() throws IOException {
+    private void runVitextClient(SDPMessage sdp) throws IOException {
+        if (TEST_MODE) {
+            System.out.println("[TEST_MODE] Skipping Vitext Client launch.");
+            return;
+        }
+        String multicastIp = sdp.getIp();
+        int port = sdp.getPort();
+
         vitextClient = TerminalLauncher.startInTerminal(
             Arrays.asList(
                 "vitext/vitextclient",
-                "-p", "5000",
-                "239.1.2.3"
+                "-p", String.valueOf(port),
+                multicastIp
             )
         );
 
@@ -352,14 +482,22 @@ public class UaUserLayer {
         }
     }
 
-    private void runVitextServer() throws IOException {
+    private void runVitextServer(SDPMessage sdp) throws IOException {
+        if (TEST_MODE) {
+            System.out.println("[TEST_MODE] Skipping Vitext Server launch.");
+            return;
+        }
+        
+        String multicastIp = sdp.getIp();
+        int port = sdp.getPort();
+        
         vitextServer = TerminalLauncher.startInTerminal(
             Arrays.asList(
                 "vitext/vitextserver",
                 "-r", "2",
-                "-p", "5000",
+                "-p", String.valueOf(port),
                 "vitext/1.vtx",
-                "239.1.2.3"
+                multicastIp
             )
         );
 
@@ -419,8 +557,12 @@ public class UaUserLayer {
         return sipUri.startsWith("sip:") ? sipUri.substring(4) : sipUri;
     }
 
-    private String buildContactUri() {
+    public String getContactUri() {
         return extractUser(sipUserUri) + "@" + myAddress + ":" + listenPort;
+    }
+
+    private String buildContactUri() {
+        return getContactUri();
     }
 
     private void terminate(String reason) {

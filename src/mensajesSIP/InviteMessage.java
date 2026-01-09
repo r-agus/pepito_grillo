@@ -529,4 +529,32 @@ public class InviteMessage extends SIPMessage {
         );
         return serviceUnavailableMessage;
     }
+
+    public mensajesSIP.RingingMessage createRingingResponse() {
+        mensajesSIP.RingingMessage ringingMessage = new mensajesSIP.RingingMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr
+        );
+        return ringingMessage;
+    }
+
+    public mensajesSIP.RequestTimeoutMessage createRequestTimeoutResponse() {
+        mensajesSIP.RequestTimeoutMessage rtMessage = new mensajesSIP.RequestTimeoutMessage(
+            this.vias,
+            this.toName,
+            this.toUri,
+            this.fromName,
+            this.fromUri,
+            this.callId,
+            this.cSeqNumber,
+            this.cSeqStr
+        );
+        return rtMessage;
+    }
 }
