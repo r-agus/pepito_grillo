@@ -20,10 +20,25 @@ public class ProxyTransactionLayer {
 
     private ProxyUserLayer userLayer;
     private ProxyTransportLayer transportLayer;
+    private int listenPort;
 
     public ProxyTransactionLayer(int listenPort, ProxyUserLayer userLayer) throws SocketException {
         this.userLayer = userLayer;
+        this.listenPort = listenPort;
         this.transportLayer = new ProxyTransportLayer(listenPort, this);
+    }
+    
+    public String getListeningAddress() {
+        try {
+            return common.FindMyIPv4.findMyIPv4Address().getHostAddress();
+        } catch (Exception e) {
+            System.err.println("Could not resolve local IP, using 127.0.0.1: " + e.getMessage());
+            return "127.0.0.1";
+        }
+    }
+    
+    public int getListeningPort() {
+        return listenPort; 
     }
 
     public void onMessageReceived(SIPMessage sipMessage) throws IOException, SIPException {
