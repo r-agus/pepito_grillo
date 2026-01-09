@@ -9,7 +9,7 @@ import java.util.Enumeration;
 public class FindMyIPv4 {
 	public static void main(String[] args) throws SocketException, UnknownHostException {
 		System.out.println(findMyIPv4Address().getHostAddress());
-	}
+	} 
 
 	/**
 	 * Returns my non-loopback IPv4 address. If more than one is found, an
