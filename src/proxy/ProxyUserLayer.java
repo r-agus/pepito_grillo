@@ -456,8 +456,6 @@ public class ProxyUserLayer {
                 System.err.println("Received BYE from unknown user: " + fromName);
             }
             this.currentCall = Optional.empty();
-        } else {
-            System.err.println("Received BYE but there is no active call for ID: " + callId);
         }
     }
     
