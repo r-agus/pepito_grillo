@@ -208,6 +208,17 @@ public class UaUserLayer {
                 this.lastInvite.setRecordRoute(recordRoute);
             }
         }
+        
+        // Launch Vitext Client with SDP from OK
+        if (ok.getSdp() != null) {
+            try {
+                runVitextClient(ok.getSdp());
+            } catch (IOException e) {
+                System.err.println("Failed to launch vitext client: " + e.getMessage());
+            }
+        } else {
+            System.err.println("Received OK without SDP, cannot launch vitext client.");
+        }
 
         // Build ACK and send either via proxy (loose routing) or directly to contact (end-to-end)
         try {
@@ -238,6 +249,7 @@ public class UaUserLayer {
                 String[] parts = contact.split(":");
                 String addr = parts[0];
                 int port = 5060; // Default SIP port
+                
                 if (parts.length > 1) {
                     try {
                         port = Integer.parseInt(parts[1]);
@@ -283,7 +295,7 @@ public class UaUserLayer {
         sdpMessage.setPort(this.rtpPort);
         sdpMessage.setOptions(RTPFLOWS);
         transactionLayer.answerCall(sdpMessage, getContactUri());
-        runVitextServer();
+        runVitextServer(sdpMessage);
         this.lastInvite = inviteMessage;
     }
 
@@ -343,7 +355,7 @@ public class UaUserLayer {
             sdpMessage.setPort(this.rtpPort);
             sdpMessage.setOptions(RTPFLOWS);
             transactionLayer.answerCall(sdpMessage, getContactUri());
-            runVitextServer();
+            runVitextServer(sdpMessage);
         } else if (line.toLowerCase().equals("bye")) {
             if (lastInvite != null) {
                 try {
@@ -388,8 +400,6 @@ public class UaUserLayer {
 
         System.out.println("Inviting " + to + "...");
 
-        runVitextClient();
-
         String callId = UUID.randomUUID().toString();
 
         SDPMessage sdpMessage = new SDPMessage();
@@ -420,16 +430,19 @@ public class UaUserLayer {
         transactionLayer.call(inviteMessage);
     }
 
-    private void runVitextClient() throws IOException {
+    private void runVitextClient(SDPMessage sdp) throws IOException {
         if (TEST_MODE) {
             System.out.println("[TEST_MODE] Skipping Vitext Client launch.");
             return;
         }
+        String multicastIp = sdp.getIp();
+        int port = sdp.getPort();
+
         vitextClient = TerminalLauncher.startInTerminal(
             Arrays.asList(
                 "vitext/vitextclient",
-                "-p", "5000",
-                "239.1.2.3"
+                "-p", String.valueOf(port),
+                multicastIp
             )
         );
 
@@ -463,18 +476,22 @@ public class UaUserLayer {
         }
     }
 
-    private void runVitextServer() throws IOException {
+    private void runVitextServer(SDPMessage sdp) throws IOException {
         if (TEST_MODE) {
             System.out.println("[TEST_MODE] Skipping Vitext Server launch.");
             return;
         }
+        
+        String multicastIp = sdp.getIp();
+        int port = sdp.getPort();
+        
         vitextServer = TerminalLauncher.startInTerminal(
             Arrays.asList(
                 "vitext/vitextserver",
                 "-r", "2",
-                "-p", "5000",
+                "-p", String.valueOf(port),
                 "vitext/1.vtx",
-                "239.1.2.3"
+                multicastIp
             )
         );
 
