@@ -771,10 +771,10 @@ public class TestUA {
 
         // Check correct mapping
         // UaUserLayer prints "Could not contact: ... (busy)." on 503/ServiceUnavailable
-        if (!marioOut.contains("(busy)")) {
+        if (!marioOut.contains("(service unavailable)")) {
              System.out.println("___ MARIO LOG ___");
              System.out.println(marioOut);
-            throw new RuntimeException("Mario did not receive 503 Service Unavailable (busy) as expected.");
+            throw new RuntimeException("Mario did not receive 503 Service Unavailable as expected.");
         }
         
         // Ensure Proxy logged something about servlet

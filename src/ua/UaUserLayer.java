@@ -284,7 +284,7 @@ public class UaUserLayer {
     }
 
     public void onInviteServiceUnavailableResponse(ServiceUnavailableMessage sipMessage) {
-        System.err.println("Could not contact: " + sipMessage.getToName() + " (busy)."); // using same (busy) message for test compatibility
+        System.err.println("Could not contact: " + sipMessage.getToName() + " (service unavailable).");
         stopVitextClient();
     }
 
