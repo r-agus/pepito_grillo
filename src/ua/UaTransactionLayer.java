@@ -95,6 +95,9 @@ public class UaTransactionLayer {
             }
         } else if (isResponseToInvite(sipMessage)) {
             if (sipMessage instanceof OKMessage) {
+                if (userLayer.isDebug()) {
+                    System.out.println("[DEBUG] Received OK response");
+                }
                 if (callingTimeoutFuture != null) callingTimeoutFuture.cancel(false);
                 state = State.IN_CALL;
                 userLayer.onInviteOKResponse(sipMessage);
@@ -138,6 +141,9 @@ public class UaTransactionLayer {
     }
 
     private void sendMessage(SIPMessage message) throws IOException {
+        if (userLayer.isDebug()) {
+            System.out.println("[DEBUG] Sending message to proxy: \n" + message.toStringMessage());
+        }
         transportLayer.sendToProxy(message);
     }
 
