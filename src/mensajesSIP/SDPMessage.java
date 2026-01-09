@@ -85,7 +85,7 @@ public class SDPMessage {
         String a = "";
         
         sdp = "c=IN IP4 " + ip + "\n";
-        sdp += "m=audio " + port + " RTP/AVP";
+        sdp += "m=video " + port + " RTP/AVP";
         for (int i = 0; i < options.size(); i++) {
             sdp += " " + options.get(i);
             if (options.get(i) == 96) {
@@ -114,7 +114,8 @@ public class SDPMessage {
     }
 
     private void parseM(String line) throws SIPException {
-        Pattern pattern = Pattern.compile("m=audio (\\d+) RTP/AVP (96|97|98) ?(96|97|98)? ?(96|97|98)?");
+        // Allow m=video or m=audio, capture port and options
+        Pattern pattern = Pattern.compile("m=(?:video|audio) (\\d+) RTP/AVP (96|97|98) ?(96|97|98)? ?(96|97|98)?");
         
         //System.out.println(line);
         Matcher matcher = pattern.matcher(line);
