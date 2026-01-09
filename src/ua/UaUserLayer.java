@@ -66,6 +66,8 @@ public class UaUserLayer {
     };
 
     private InviteMessage lastInvite;
+    private int globalCSeq = 1;
+
     private Process vitextClient = null;
     private Process vitextServer = null;
     private boolean amICaller = false;
@@ -111,7 +113,7 @@ public class UaUserLayer {
         registerMessage.setFromName(sipUserName);
         registerMessage.setFromUri(sipUserUri);
         registerMessage.setCallId(UUID.randomUUID().toString());
-        registerMessage.setcSeqNumber("1");
+        registerMessage.setcSeqNumber(String.valueOf(globalCSeq++));
         registerMessage.setcSeqStr("REGISTER");
         registerMessage.setContact(buildContactUri());
         registerMessage.setExpires(registerExpires);
@@ -209,6 +211,9 @@ public class UaUserLayer {
     public void onInviteReceived(InviteMessage inviteMessage) throws IOException {
         amICaller = false;
         System.out.println("Received INVITE from " + inviteMessage.getFromName());
+        if (DEBUG) {
+            System.out.println("IN_DEBUG_VIAS " + inviteMessage.getVias());
+        }
         
         // Auto-answer
         SDPMessage sdpMessage = new SDPMessage();
@@ -286,6 +291,7 @@ public class UaUserLayer {
                     } else {
                         byeMessage = lastInvite.createByeMessageFromCallee();
                     }
+                    if (DEBUG) System.out.println("DEBUG_BYE " + byeMessage.toStringMessage());
                     System.out.println("Sending BYE...");
                     transactionLayer.sendBye(byeMessage);
                     stopVitextClient();
@@ -338,7 +344,7 @@ public class UaUserLayer {
         inviteMessage.setFromName(sipUserName);
         inviteMessage.setFromUri(sipUserUri);
         inviteMessage.setCallId(callId);
-        inviteMessage.setcSeqNumber("1");
+        inviteMessage.setcSeqNumber(String.valueOf(globalCSeq++));
         inviteMessage.setcSeqStr("INVITE");
         inviteMessage.setContact(myAddress + ":" + listenPort);
         inviteMessage.setContentType("application/sdp");
@@ -346,6 +352,8 @@ public class UaUserLayer {
         inviteMessage.setSdp(sdpMessage);
         this.lastInvite = inviteMessage;
         this.amICaller = true;
+        
+        if (DEBUG) System.out.println("DEBUG_INVITE_CSEQ " + inviteMessage.getcSeqNumber());
 
         transactionLayer.call(inviteMessage);
     }
