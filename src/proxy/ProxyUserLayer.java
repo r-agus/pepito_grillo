@@ -28,7 +28,6 @@ import mensajesSIP.RingingMessage;
 import mensajesSIP.SIPException;
 import mensajesSIP.SIPMessage;
 import mensajesSIP.TryingMessage;
-import mensajesSIP.ServiceUnavailableMessage;
 import mensajesSIP.OKMessage;
 
 import sipServlet.SIPServletInterface;
@@ -91,11 +90,17 @@ public class ProxyUserLayer {
     private final Map<String, String> userServlets = new HashMap<>();
 
     private void loadUserServlets() {
-        try (InputStream xml = UsersServletReader.class.getResourceAsStream("users.xml")) {
-            if (xml == null) {
-                System.err.println("users.xml not found");
-                return;
-            }
+        InputStream xmlStream = UsersServletReader.class.getResourceAsStream("users.xml");
+        if (xmlStream == null) {
+            xmlStream = UsersServletReader.class.getResourceAsStream("/users.xml");
+        }
+
+        if (xmlStream == null) {
+            System.err.println("users.xml not found");
+            return;
+        }
+
+        try (InputStream xml = xmlStream) {
             JAXBContext jaxbContext = JAXBContext.newInstance(Users.class);
             Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
             Users users = (Users) jaxbUnmarshaller.unmarshal(xml);
@@ -145,6 +150,7 @@ public class ProxyUserLayer {
         switch (statusCode) {
             case 100: return invite.createTryingResponse();
             case 200: return invite.createOKResponse();
+            case 403: return invite.createServiceUnavailableResponse(); // Map 403 to 503 (Service Unavailable)
             case 404: return invite.createNotFoundResponse();
             case 486: return invite.createBusyHereResponse();
             case 503: return invite.createServiceUnavailableResponse();
