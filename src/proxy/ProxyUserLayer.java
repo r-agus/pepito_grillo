@@ -63,7 +63,7 @@ public class ProxyUserLayer {
     }
     
     private final ProxyTransactionLayer transactionLayer;
-    private final Set<String> allowedUsers = Set.of("alice", "bob", "mario", "boss");
+    private final Set<String> allowedUsers = Set.of("alice", "bob", "mario", "boss", "charlie");
     private final Map<String, Registration> registeredUsers = new HashMap<>(); // To store registered users by their fromName without duplicates
 
     private class Call {
@@ -79,7 +79,8 @@ public class ProxyUserLayer {
             this.inviteMessage = inviteMessage;
         }
     }
-    private Optional<Call> currentCall = Optional.empty(); // Use Optional to represent absence of a call
+
+    private final Map<String, Call> activeCalls = new HashMap<>();
 
     private final boolean looseRouting;
     private final String proxyAddress;
@@ -216,7 +217,7 @@ public class ProxyUserLayer {
                         transactionLayer.sendResponse(trying, originAddress, originPort);
                         
                         transactionLayer.forwardInvite(inviteMessage, targetReg.ip, targetReg.port);
-                        currentCall = Optional.of(new Call(registeredUsers.get(fromName), targetReg, callId, inviteMessage));
+                        activeCalls.put(callId, new Call(registeredUsers.get(fromName), targetReg, callId, inviteMessage));
                     } else {
                         SIPMessage notFound = inviteMessage.createNotFoundResponse();
                         transactionLayer.sendResponse(notFound, originAddress, originPort);
@@ -249,13 +250,6 @@ public class ProxyUserLayer {
             return;
         }
 
-        if (currentCall.isPresent() && !currentCall.get().callId.equals(callId)) {
-            // Send 503 service unavailable to caller
-            SIPMessage serviceUnavailable = inviteMessage.createServiceUnavailableResponse();
-            transactionLayer.sendResponse(serviceUnavailable, originAddress, originPort);
-            return;
-        }
-
         if (looseRouting && (usersOk || forceRecordRoute)) {
             // add Record-Route so future in-dialog requests can be routed via this proxy
             String rr = proxyAddress + ":" + proxyPort;
@@ -263,7 +257,7 @@ public class ProxyUserLayer {
             System.out.println("[PROXY] Added Record-Route: " + rr + " (usersOk=" + usersOk + ", force=" + forceRecordRoute + ")");
         }
 
-        currentCall = Optional.of(new Call(registeredUsers.get(fromName), registeredUsers.get(toName), callId, inviteMessage));
+        activeCalls.put(callId, new Call(registeredUsers.get(fromName), registeredUsers.get(toName), callId, inviteMessage));
 
         SIPMessage trying = inviteMessage.createTryingResponse();
         transactionLayer.sendResponse(trying, originAddress, originPort);
@@ -276,8 +270,9 @@ public class ProxyUserLayer {
 
     public void onInviteOKReceived(OKMessage okMessage) {
         // Forward OK back to caller, and if loose routing is enabled add record-route so caller knows
-        if (!currentCall.isPresent()) return;
-        Call call = currentCall.get();
+        String callId = okMessage.getCallId();
+        Call call = activeCalls.get(callId);
+        if (call == null) return;
         ArrayList<String> vias = call.inviteMessage.getVias();
         String origin = vias.get(0);
         String[] originParts = origin.split(":");
@@ -299,8 +294,15 @@ public class ProxyUserLayer {
 
     public void onAckReceived(ACKMessage ackMessage) {
         String fromName = ackMessage.getFromName().toLowerCase();
-        if (!currentCall.isPresent()) return;
-        Call call = currentCall.get();
+        String callId = ackMessage.getCallId();
+        Call call = activeCalls.get(callId);
+        
+        System.out.println("[PROXY] onAckReceived callId=" + callId + " route=" + ackMessage.getRoute());
+        
+        if (call == null) {
+            System.err.println("Proxy received ACK for unknown call ID: " + callId);
+            return;
+        }
         try {
             if (call.caller.user.equals(fromName)) {
                 // ACK from caller -> forward to callee
@@ -326,8 +328,8 @@ public class ProxyUserLayer {
     }
 
     private void onInviteError(SIPMessage message, String callId) {
-        if (currentCall.isPresent() && currentCall.get().callId.equals(callId)) {
-            Call call = currentCall.get();
+        Call call = activeCalls.get(callId);
+        if (call != null) {
             InviteMessage inviteMessage = call.inviteMessage;
             ArrayList<String> vias = inviteMessage.getVias();
             
@@ -358,7 +360,7 @@ public class ProxyUserLayer {
                 System.err.println("Failed to send response to caller: " + e.getMessage());
                 e.printStackTrace();
             }
-            this.currentCall = Optional.empty();
+            activeCalls.remove(callId);
         }
     }
 
@@ -372,8 +374,10 @@ public class ProxyUserLayer {
 
     private void calleeEndedCall(ByeMessage byeMessage) {
         // The byeMessage comes from the callee, forward it to the caller
-        if (!currentCall.isPresent()) return; // No active call
-        Call call = currentCall.get();
+
+         String callId = byeMessage.getCallId();
+         Call call = activeCalls.get(callId);
+         if (call == null) return;
         InviteMessage inviteMessage = call.inviteMessage;
         ArrayList<String> vias = inviteMessage.getVias();
         String origin = vias.get(0);
@@ -388,7 +392,7 @@ public class ProxyUserLayer {
             e.printStackTrace();
         }
         
-        this.currentCall = Optional.empty();
+        activeCalls.remove(callId);
     }
 
     public void onTryingReceived(TryingMessage msg) {
@@ -406,13 +410,14 @@ public class ProxyUserLayer {
 
     public void onRequestTimeoutReceived(RequestTimeoutMessage msg) {
         forwardResponseToCaller(msg, msg.getCallId());
-        this.currentCall = Optional.empty();
+        activeCalls.remove(msg.getCallId());
     }
 
     private void callerEndedCall(ByeMessage byeMessage) {
         // The byeMessage comes from the caller, forward it to the callee
-        if (!currentCall.isPresent()) return; // No active call
-        Call call = currentCall.get();
+        String callId = byeMessage.getCallId();
+        Call call = activeCalls.get(callId);
+        if (call == null) return;
         Registration calleeReg = call.callee;
         try {
             if (looseRouting) byeMessage.setRoute(null);
@@ -421,11 +426,11 @@ public class ProxyUserLayer {
             System.err.println("Failed to forward BYE to callee: " + e.getMessage());
             e.printStackTrace();
         }
-        this.currentCall = Optional.empty();
+        activeCalls.remove(call.callId);
     }
 
     private void forwardResponseToCaller(SIPMessage msg, String callId) {
-        Call call = currentCall.isPresent() ? currentCall.get() : null;
+        Call call = activeCalls.get(callId);
         if (call != null && call.callId.equals(callId)) {
             try {
                 System.out.println("Forwarding response to " + call.caller.user + " at " + call.caller.port);
@@ -440,7 +445,9 @@ public class ProxyUserLayer {
 
     public void onByeReceived(ByeMessage sipMessage) {
         String callId = sipMessage.getCallId();
-        Call call = currentCall.isPresent() ? currentCall.get() : null;
+        Call call = activeCalls.get(callId);
+        
+        System.out.println("[PROXY] onByeReceived callId=" + callId + " route=" + sipMessage.getRoute());
         
         if (call != null) {
             String fromName = sipMessage.getFromName().toLowerCase();
@@ -455,7 +462,7 @@ public class ProxyUserLayer {
             } else {
                 System.err.println("Received BYE from unknown user: " + fromName);
             }
-            this.currentCall = Optional.empty();
+            activeCalls.remove(callId);
         }
     }
     
