@@ -63,9 +63,9 @@ public class ProxyUserLayer {
     }
     
     private final ProxyTransactionLayer transactionLayer;
-    private final Map<String, Registration> registeredUsers = new HashMap<>(); // To store registered users by their fromName without duplicates
-    
-    private Set<String> allowedUsers = new HashSet<>(Set.of("alice", "bob", "mario", "boss", "charlie"));
+    private final Map<String, Registration> registeredUsers = new HashMap<>(); 
+
+    private Set<String> allowedUsers = new HashSet<>(Set.of("alice", "bob", "mario", "boss", "charlie", "u1", "u2"));
 
     private class Call {
         Registration caller;
@@ -199,6 +199,30 @@ public class ProxyUserLayer {
         String callId = inviteMessage.getCallId();
         System.out.println("[PROXY] onInviteReceived from=" + fromName + " to=" + toName + " callId=" + callId + " usersRegistered=" + registeredUsers.keySet() + " loose=" + looseRouting + " force=" + forceRecordRoute);
         
+        if (looseRouting) {
+            boolean isBusy = false;
+            for (Call c : activeCalls.values()) {
+                if (c.caller.user.equals(fromName) || c.callee.user.equals(fromName) ||
+                    c.caller.user.equals(toName) || c.callee.user.equals(toName)) {
+                    isBusy = true;
+                    break;
+                }
+            }
+            if (isBusy) {
+                 System.out.println("User is busy, and loose routing is active. Sending 503.");
+                 // Find origin address/port to send response
+                 ArrayList<String> vias = inviteMessage.getVias();
+                 String origin = vias.get(0);
+                 String[] originParts = origin.split(":");
+                 String originAddress = originParts[0];
+                 int originPort = Integer.parseInt(originParts[1]);
+                 
+                 SIPMessage su = inviteMessage.createServiceUnavailableResponse();
+                 transactionLayer.sendResponse(su, originAddress, originPort);
+                 return;
+            }
+        }
+        
         // Servlet Logic
         String servletClassName = userServlets.get(toName);
         if (servletClassName == null) {
@@ -279,11 +303,10 @@ public class ProxyUserLayer {
         }
 
         activeCalls.put(callId, new Call(registeredUsers.get(fromName), registeredUsers.get(toName), callId, inviteMessage));
-
+        
         SIPMessage trying = inviteMessage.createTryingResponse();
         transactionLayer.sendResponse(trying, originAddress, originPort);
 
-        // Forward INVITE to callee
         Registration calleeReg = registeredUsers.get(toName);
         inviteMessage.addVia(transactionLayer.getListeningAddress() + ":" + transactionLayer.getListeningPort());
         transactionLayer.forwardInvite(inviteMessage, calleeReg.ip, calleeReg.port);

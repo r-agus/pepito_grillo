@@ -24,6 +24,7 @@ import mensajesSIP.OKMessage;
 import mensajesSIP.SDPMessage;
 import mensajesSIP.ServiceUnavailableMessage;
 import mensajesSIP.SIPMessage;
+import mensajesSIP.TryingMessage;
 
 public class UaUserLayer {
     private enum State { UNREGISTERED, REGISTERING, REGISTERED }
@@ -197,9 +198,16 @@ public class UaUserLayer {
         terminate("Received 404 Not Found for REGISTER");
     }
 
+    public void onTryingReceived(TryingMessage sipMessage) {
+        if (DEBUG) System.out.println("[DEBUG] Received Trying response (100 Trying) for INVITE");
+    }
+
     public void onInviteOKResponse(SIPMessage sipMessage) {
         if (DEBUG) System.out.println("[DEBUG] Received OK response for INVITE");
         OKMessage ok = (OKMessage) sipMessage;
+        if (DEBUG && ok.getSdp() != null) {
+             System.out.println("[DEBUG] SDP: " + ok.getSdp().toStringMessage());
+        }
 
         // If the OK carries Record-Route this means loose routing is active
         String recordRoute = ok.getRecordRoute();
@@ -279,12 +287,12 @@ public class UaUserLayer {
     }
 
     public void onInviteBusyHereResponse(BusyHereMessage sipMessage) {
-        System.err.println("Could not contact: " + sipMessage.getToName() + " (busy).");
-        stopVitextClient();
+         System.err.println("Could not contact: " + sipMessage.getToName() + " (486 Busy Here).");
+         stopVitextClient();
     }
 
     public void onInviteServiceUnavailableResponse(ServiceUnavailableMessage sipMessage) {
-        System.err.println("Could not contact: " + sipMessage.getToName() + " (service unavailable).");
+        System.err.println("Could not contact: " + sipMessage.getToName() + " (503 Service Unavailable).");
         stopVitextClient();
     }
 
@@ -413,12 +421,22 @@ public class UaUserLayer {
         sdpMessage.setPort(this.rtpPort);
         sdpMessage.setOptions(RTPFLOWS);
 
+        String toUri;
+        String toName;
+        if (to.startsWith("sip:")) {
+             toUri = to;
+             toName = extractUser(to);
+        } else {
+             toUri = "sip:" + to + "@SMA";
+             toName = to;
+        }
+
         InviteMessage inviteMessage = new InviteMessage();
-        inviteMessage.setDestination("sip:" + to + "@SMA");
+        inviteMessage.setDestination(toUri);
         inviteMessage.setVias(new ArrayList<String>(Arrays.asList(this.myAddress + ":" + this.listenPort)));
         inviteMessage.setMaxForwards(70);
-        inviteMessage.setToName(to);
-        inviteMessage.setToUri("sip:" + to + "@SMA");
+        inviteMessage.setToName(toName);
+        inviteMessage.setToUri(toUri);
         inviteMessage.setFromName(sipUserName);
         inviteMessage.setFromUri(sipUserUri);
         inviteMessage.setCallId(callId);
