@@ -1,13 +1,37 @@
-# Entrega 1
+# Prácticas SIP
 
-| Arranque y REGISTER | |
+## Contenidos
+- [Prácticas SIP](#prácticas-sip)
+  - [Contenidos](#contenidos)
+  - [Ejecución](#ejecución)
+  - [Plan de pruebas](#plan-de-pruebas)
+    - [Entrega 1](#entrega-1)
+
+
+## Ejecución
+
+**UA**
+```bash
+java UA <usuarioSIP> <puertoUA> <ipProxy> <puertoProxy> <debug:true|false> <expires_seg>
+```
+
+**Proxy**
+```bash
+java Proxy <puertoProxy> <loose-routing:true|false> <debug:true|false>
+```
+
+## Plan de pruebas
+
+### Entrega 1
+
+| Arranque y REGISTER | Implementación |
 |---------------------|-|
 |El REGISTER se reenvía cada 2 segundos hasta recibir respuesta del proxy | |
 |Si el usuario no está en la lista de usuarios permitidos se recibe un 404 | |
 |Si el usuario sí está en la lista de usuarios permitidos se recibe un 200 | |
 |Si un usuario se registra una segunda vez se actualiza su dirección SIP de registro a la última, borrándose la primera | |
 
-|INVITE y BYE (sin Loose Routing)| |
+|INVITE y BYE (sin Loose Routing)| Implementación |
 |--------------------------------|-|
 |Un INVITE recibe un 404 si A o B no están registrados| |
 |Un proxy devuelve un 100 al recibir un INVITE si no está procesando una transacción  y un 503 si ya lo está| |
