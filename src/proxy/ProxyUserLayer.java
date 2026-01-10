@@ -63,8 +63,8 @@ public class ProxyUserLayer {
     }
     
     private final ProxyTransactionLayer transactionLayer;
-    private final Map<String, Registration> registeredUsers = new HashMap<>(); // To store registered users by their fromName without duplicates
-    
+    private final Map<String, Registration> registeredUsers = new HashMap<>(); 
+
     private Set<String> allowedUsers = new HashSet<>(Set.of("alice", "bob", "mario", "boss", "charlie", "u1", "u2"));
 
     private class Call {
@@ -279,11 +279,10 @@ public class ProxyUserLayer {
         }
 
         activeCalls.put(callId, new Call(registeredUsers.get(fromName), registeredUsers.get(toName), callId, inviteMessage));
-
+        
         SIPMessage trying = inviteMessage.createTryingResponse();
         transactionLayer.sendResponse(trying, originAddress, originPort);
 
-        // Forward INVITE to callee
         Registration calleeReg = registeredUsers.get(toName);
         inviteMessage.addVia(transactionLayer.getListeningAddress() + ":" + transactionLayer.getListeningPort());
         transactionLayer.forwardInvite(inviteMessage, calleeReg.ip, calleeReg.port);

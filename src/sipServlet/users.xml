@@ -3,4 +3,7 @@
 		<Servlet-class name="sipServlet.TimeRestrictedServlet" />
 	</user>
 	<user id="sip:juana@it.sma.es"/>
+	<user id="sip:boss@domain.com">
+		<Servlet-class name="sipServlet.RedirectServlet" />
+	</user>
 </users>
