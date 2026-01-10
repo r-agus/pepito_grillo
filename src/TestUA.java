@@ -69,6 +69,9 @@ public class TestUA {
         failures += runTest("Servlet Blocking (403->503)", TestUA::testServletBlocking);
         failures += runTest("Juana Call (No Servlet)", TestUA::testJuanaCall);
         failures += runTest("Video Call Port 49172", TestUA::testVideoCallPort49172);
+        failures += runTest("Proxy 100 Trying", TestUA::test100Trying);
+        failures += runTest("Call-ID Uniqueness", TestUA::testCallIdUniqueness);
+        failures += runTest("Call Redirection", TestUA::testRedirection);
         
         System.out.println("==========================================");
         if (failures > 0) {
@@ -883,6 +886,114 @@ public class TestUA {
              System.out.println("___ U1 LOG ___");
              System.out.println(u1.getOutput());
              throw new RuntimeException("Could not find video port 49172 in the negotiation (checked U2 logs).");
+        }
+    }
+
+    private static void test100Trying() throws Exception {
+        int proxyPort = nextPort();
+        int uaPort = nextPort();
+        
+        SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort));
+        proxy.start();
+        Thread.sleep(500);
+        
+        SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(uaPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        alice.enableDebug();
+        alice.start();
+        Thread.sleep(1000);
+        
+        // Alice sends INVITE to anyone
+        alice.sendInput("INVITE " + BOB_URI);
+        Thread.sleep(1000);
+        
+        String log = alice.getOutput();
+        // Expect "Received response... 100 Trying"
+        if (!log.contains("100 Trying")) {
+             System.out.println("___ ALICE LOG ___");
+             System.out.println(log);
+            throw new RuntimeException("Alice did not receive 100 Trying.");
+        }
+    }
+    
+    private static void testCallIdUniqueness() throws Exception {
+        int proxyPort = nextPort();
+        int uaPort = nextPort();
+        
+        SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort));
+        proxy.start();
+        
+        SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(uaPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        alice.enableDebug();
+        alice.start();
+        Thread.sleep(1000);
+        
+        alice.sendInput("INVITE " + BOB_URI);
+        Thread.sleep(500);
+        alice.sendInput("INVITE " + CHARLIE_URI);
+        Thread.sleep(500);
+        
+        String log = alice.getOutput();
+        List<String> callIds = new ArrayList<>();
+        
+        String[] lines = log.split("\n");
+        for (String l : lines) {
+            if (l.contains("Call-ID:")) {
+                String id = l.substring(l.indexOf("Call-ID:") + 8).trim();
+                // Filter out if it's empty or some other noise
+                if (id.length() > 5 && !callIds.contains(id)) {
+                    callIds.add(id);
+                }
+            }
+        }
+        
+        if (callIds.size() < 2) {
+             System.out.println("___ ALICE LOG (Call-ID Check) ___");
+             System.out.println(log);
+             throw new RuntimeException("Could not verify unique Call-IDs. Found: " + callIds.size() + " IDs: " + callIds);
+        }
+    }
+    
+    private static void testRedirection() throws Exception {
+        int proxyPort = nextPort();
+        int alicePort = nextPort();
+        int bossPort = nextPort();
+        int charliePort = nextPort();
+        
+        String bossUri = "sip:boss@domain.com"; // Mapped to RedirectServlet -> redirects to Charlie
+
+        SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort));
+        proxy.start();
+        Thread.sleep(1000);
+
+        // Charlie registers (Target)
+        SIPProcess charlie = new SIPProcess("Charlie", "UA", CHARLIE_URI, String.valueOf(charliePort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        charlie.enableDebug();
+        charlie.start();
+        
+        // Boss registers (Intermediary with Servlet)
+        SIPProcess boss = new SIPProcess("Boss", "UA", bossUri, String.valueOf(bossPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        boss.start();
+        
+        // Alice registers (Caller)
+        SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(alicePort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        alice.enableDebug();
+        alice.start();
+        Thread.sleep(2000);
+        
+        // Alice calls Boss
+        alice.sendInput("INVITE " + bossUri);
+        Thread.sleep(3000);
+        
+        // Proxy should execute RedirectServlet
+        // Proxy should proxyTo Charlie
+        // Charlie should receive INVITE
+        String charlieLog = charlie.getOutput();
+        if (!charlieLog.contains("Received INVITE")) {
+             System.out.println("___ CHARLIE LOG ___");
+             System.out.println(charlieLog);
+             System.out.println("___ PROXY LOG ___");
+             System.out.println(proxy.getOutput());
+             throw new RuntimeException("Charlie did not receive redirected INVITE.");
         }
     }
 }
