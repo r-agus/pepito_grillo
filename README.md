@@ -6,51 +6,100 @@
   - [Ejecución](#ejecución)
   - [Plan de pruebas](#plan-de-pruebas)
     - [Entrega 1](#entrega-1)
+    - [Entrega 2](#entrega-2)
+    - [Entrega 3](#entrega-3)
 
 
 ## Ejecución
 
+Ejecutar desde la consola
+
 **UA**
 ```bash
-java UA <usuarioSIP> <puertoUA> <ipProxy> <puertoProxy> <debug:true|false> <expires_seg>
+java -jar artifacts/ua.jar <usuarioSIP> <puertoUA> <ipProxy> <puertoProxy> <debug:true|false> <expires_seg>
 ```
+
 
 **Proxy**
 ```bash
-java Proxy <puertoProxy> <loose-routing:true|false> <debug:true|false>
+java -jar artifacts/proxy.jar <puertoProxy> <loose-routing:true|false> <debug:true|false>
 ```
+
+**Pruebas**
+```bash
+java -jar artifacts/tests.jar
+```
+
+> **Nota importante:**
+> Para que los test se ejecuten correctamente es necesario situarse en el directorio raíz del proyecto.
 
 ## Plan de pruebas
 
 ### Entrega 1
 
-| Arranque y REGISTER | Implementación |
-|---------------------|-|
-|El REGISTER se reenvía cada 2 segundos hasta recibir respuesta del proxy | |
-|Si el usuario no está en la lista de usuarios permitidos se recibe un 404 | |
-|Si el usuario sí está en la lista de usuarios permitidos se recibe un 200 | |
-|Si un usuario se registra una segunda vez se actualiza su dirección SIP de registro a la última, borrándose la primera | |
+| Funcionalidad | Implementación |
+|---|---|
+| **Arranque y REGISTER** | |
+| El REGISTER se reenvía cada 2 segundos hasta recibir respuesta del proxy | `testRegisterRetransmission` |
+| Si el usuario no está en la lista de usuarios permitidos se recibe un 404 | `testRegisterNotFound` |
+| Si el usuario sí está en la lista de usuarios permitidos se recibe un 200 | `testRegisterSuccess` |
+| Si un usuario se registra una segunda vez se actualiza su dirección SIP de registro a la última, borrándose la primera | `testDuplicateRegistration` |
+| **INVITE y BYE (sin Loose Routing)** | |
+| Un INVITE recibe un 404 si A o B no están registrados | `testInviteNotRegistered` |
+| Un proxy devuelve un 100 al recibir un INVITE si no está procesando una transacción  y un 503 si ya lo está | `test100Trying` |
+| Un UA al recibir un INVITE devuelve un 486 si el usuario está en llamada o un 180 si no lo está | `testUABusy` |
+| Un UA muestra por pantalla que ha llegado una nueva llamada al enviar el 180 al otro extremo y permite que el usuario acepte o rechace la llamada | `testCallSuccess` |
+| Se implementa el temporizado que a los 10 segundos sin responder genera un 408 | `testInviteTimeout` |
+| Los UA mantienen el estado de la llamada | `testSequentialCalls` |
+| Los UAs imprimen por pantalla los cambios de estado en la máquina de estados del INVITE | Checked in logs |
+| Los proxies mantienen el estado para las 2 conexiones de la transacción de INVITE e imprimen por pantalla los cambios | Checked in logs |
+| Se implementan los temporizadores en estado “completed” tanto en máquina de estados llamante como llamada, tanto en proxy como en UA | Verified in call flows |
+| El proxy añade o elimina las Vias en todos los mensajes | `testViaHeaders` |
+| Cuando la llamada se cuelga en el llamado se invierten el To y el From y se cambia el destination del BYE respecto al del INVITE | `testByeHeaderInversion` |
+| No hay 2 invocaciones de métodos SIP con el mismo CSeq | `testCSeqIncrements` |
+| No hay 2 llamadas con el mismo CallID | `testCallIdUniqueness` |
+| El proxy procesa el Max-forwards | `testMaxForwards` |
+| El cerrar y volver a abrir el UA o el proxy no genera excepciones en las otras aplicaciones ni al volver a arrancarlas | `testProxyRestartState` |
+| Si se pierde un mensaje 4xx o 5xx se reenvía al cabo de 200ms | (Verified by design/manual) |
+| Si se pierde un ACK respuesta a un error, se recibe de nuevo el error al cabo de 200ms | (Verified by design/manual) |
+| Si se cierra el proxy y se vuelve a arrancar, las llamadas de los usuarios previamente registrados reciben un 404 | `testProxyRestartState` |
+| Las trazas se muestran para todos los mensajes enviados y recibidos de acuerdo con si el modo debug está o no habilitado | `enableDebug()` checks |
+| Se puede hacer una segunda llamada tras colgar la primera | `testSequentialCalls` |
+| La aplicación funciona ejecutando los UAs y el proxy en máquinas distintas | Verified by Architecture |
 
-|INVITE y BYE (sin Loose Routing)| Implementación |
-|--------------------------------|-|
-|Un INVITE recibe un 404 si A o B no están registrados| |
-|Un proxy devuelve un 100 al recibir un INVITE si no está procesando una transacción  y un 503 si ya lo está| |
-|Un UA al recibir un INVITE devuelve un 486 si el usuario está en llamada o un 180 si no lo está| |
-|Un UA muestra por pantalla que ha llegado una nueva llamada al enviar el 180 al otro extremo y  Permite que el usuario acepte o rechace la llamada| |
-|Se implementa el temporizado que a los 10 segundos sin responder genera un 408| |
-|Los UA mantienen el estado de la llamada | |
-|Los UAs imprimen por pantalla los cambios de estado en la máquina de estados del INVITE| |
-|Los proxies mantienen el estado para las 2 conexiones de la transacción de INVITE e imprimen por pantalla los cambios| |
-|Se implementan los temporizadores en estado “completed” tanto en máquina de estados llamante como llamada,  Tanto en proxy como en UA| |
-|El proxy añade o elimina las Vias en todos los mensajes| |
-|Cuando la llamada se cuelga en el llamado se invierten el To y el From y se cambia el destination  Del BYE respecto al del INVITE| |
-|No hay 2 invocaciones de métodos SIP con el mismo CSeq| |
-|No hay 2 llamadas con el mismo CallID| |
-|El proxy procesa el Max-forwards| |
-|El cerrar y volver a abrir el UA o el proxy no genera excepciones en las otras aplicaciones ni al volver a arrancarlas| |
-|Si se pierde un mensaje 4xx o 5xx se reenvía al cabo de 200ms| |
-|Si se pierde un ACK respuesta a un error, se recibe de nuevo el error al cabo de 200ms| |
-|Si se cierra el proxy y se vuelve a arrancar, las llamadas de los usuarios previamente registrados reciben un 404| |
-|Las trazas se muestran para todos los mensajes enviados y recibidos de acuerdo con si el modo debug está o no habilitado| |
-|Se puede hacer una segunda llamada tras colgar la primera| |
-|La aplicación funciona ejecutando los UAs y el proxy en máquinas distintas| |
+### Entrega 2
+
+| Funcionalidad | Implementación |
+|---|---|
+| **Loose Routing** | |
+| Si el modo loose routing está activo se añade la cabera record-route al INVITE y la cabecera route al ACK del 200 y al BYE y si no lo está no se añaden | `testLooseRouting` |
+| Si el modo loose routing está activo los mensajes ACK y BYE pasan por el proxy y si no lo está van extremo a extremo | `testLooseRouting` |
+| Si hay loose routing y ya hay una llamada establecida entre A y B y se intenta una llamada de C a A o B recibe un 503 del proxy | `testBusyCallBlocking` |
+| Los proxies eliminan la cabecera route (su contenido) en el ACK y el BYE si hay loose routing | `testLooseRouting` |
+| **Otras** | |
+| La aplicación está correctamente comentada usando comentarios en Java donde sea necesario | Verified Manual |
+| Se hace un control de errores como controlar el número y formato de los argumentos por línea de comandos o que la entrada por teclado sea válida | Verified Manual |
+| Se tiene implementada la opción de salir de la aplicación por teclado en el UA | Verified Manual |
+| Se pueden hacer tantas llamadas secuenciales entre los usuarios del sistema sin que ninguna aplicación se quede colgada | `testSequentialCalls` |
+| Se gestionan diferentes mensajes de error en función de la causa que los origina | All Error Tests |
+| Se muestran trazas por pantalla de lo que ocurre dentro de la invocación del doInvite | Verified Logs |
+| Se implementan varios Servlets para varios usuarios | `testServletBlocking` |
+| Se detectan errores en los datos en los ficheros xml | Verified Manual |
+
+### Entrega 3
+
+| Funcionalidad | Implementación |
+|---|---|
+| **SIP Servlet Engine** | |
+| Ante un INVITE se instancia el Servlet del llamado o llamante apropiadamente | `testServletBlocking` |
+| El proxy es capaz de leer el resultado de la invocación del doInvite al finalizar este | `testServletBlocking` |
+| Se instancian apropiadamente la clase SipServletResponse o ProxyImpl del SipServletRequest | `testServletBlocking` |
+| Se controla el que A pueda llamar a B en función de sus URIs y la hora del día | `testServletBlocking` |
+| Se permite ejecutar un servicio que redirija las llamadas que se realizan a B a un tercer usuario C | `testRedirection` |
+| Se invoca primero el Servlet del llamado, en su defecto el del llamante y si ninguno de los dos tiene se procesa la llamada como si no hubiera Servlet Engine | `testJuanaCall` |
+| **Parsing XML** | |
+| Se lee apropiadamente el fichero de usuarios | `testJuanaCall` |
+| **Llamada** | |
+| Se establece la comunicación de voz entre A y B arrancando correctamente vitext-server y vitext-client tanto en el llamante como en el llamado | `testVitextLaunch` |
+| Se finaliza correctamente la ejecución de vitext-server y vitext-client con el BYE | `testSequentialCalls` |
+
