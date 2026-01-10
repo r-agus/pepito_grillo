@@ -17,6 +17,7 @@ import mensajesSIP.RingingMessage;
 import mensajesSIP.SDPMessage;
 import mensajesSIP.ServiceUnavailableMessage;
 import mensajesSIP.SIPMessage;
+import mensajesSIP.TryingMessage;
 
 public class UaTransactionLayer {
     private enum State { IDLE, CALLING, RINGING, IN_CALL }
@@ -110,6 +111,8 @@ public class UaTransactionLayer {
                 if (callingTimeoutFuture != null) callingTimeoutFuture.cancel(false);
                 userLayer.onInviteBusyHereResponse((BusyHereMessage) sipMessage);
                 state = State.IDLE;
+            } else if (sipMessage instanceof TryingMessage) {
+                userLayer.onTryingReceived((TryingMessage) sipMessage);
             } else if (sipMessage instanceof RingingMessage) {
                 System.out.println("Remote is ringing (180).");
             } else if (sipMessage instanceof RequestTimeoutMessage) {
