@@ -200,6 +200,9 @@ public class UaUserLayer {
     public void onInviteOKResponse(SIPMessage sipMessage) {
         if (DEBUG) System.out.println("[DEBUG] Received OK response for INVITE");
         OKMessage ok = (OKMessage) sipMessage;
+        if (DEBUG && ok.getSdp() != null) {
+             System.out.println("[DEBUG] SDP: " + ok.getSdp().toStringMessage());
+        }
 
         // If the OK carries Record-Route this means loose routing is active
         String recordRoute = ok.getRecordRoute();
