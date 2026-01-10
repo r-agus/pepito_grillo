@@ -17,7 +17,7 @@ Se proporcionan 4 ficheros que lanzan las aplicaciones:
 - `ejecutar_tests.sh`: Lanza una batería de tests que prueban las filas de la autoevaluación (ver [plan de pruebas](#plan-de-pruebas))
 - `lanzar_alice.sh`: Lanza un UA, alice, escuchando en el puerto 4000. Espera un proxy en la dirección localhost:5002. Debug activado
 - `lanzar_bob.sh`: Lanza un UA, bob, escuchando en el puerto 5000. Espera un proxy en la dirección localhost:5002. Debug desactivado
-- `lanzar_proxy`: Escucha el puerto 5002. Debug activado.
+- `lanzar_proxy`: Escucha el puerto 5002. Debug activado, loose-routing activado.
 
 Para ejecutar de forma manual, ejecutar desde la consola
 
