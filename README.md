@@ -19,6 +19,7 @@ Ejecutar desde la consola
 java -jar artifacts/ua.jar <usuarioSIP> <puertoUA> <ipProxy> <puertoProxy> <debug:true|false> <expires_seg>
 ```
 
+El proxy admite cualquier usuario en la lista: `"alice", "bob", "mario", "boss", "charlie", "u1", "u2"`. Además, se pueden añadir otros usuarios al fichero `users.xml`. La lógica de la aplicación permite dar de alta nuevos usuarios sin añadir un Servlet (útil para pruebas).
 
 **Proxy**
 ```bash
@@ -31,7 +32,8 @@ java -jar artifacts/tests.jar
 ```
 
 > **Nota importante:**
-> Para que los test se ejecuten correctamente es necesario situarse en el directorio raíz del proyecto.
+> Para que los test se ejecuten correctamente es necesario situarse en el **directorio raíz del proyecto**.
+> Si el test no es capaz de instanciar al proxy / ua, todos los test fallan.
 
 ## Plan de pruebas
 
