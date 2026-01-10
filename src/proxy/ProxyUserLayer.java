@@ -199,6 +199,30 @@ public class ProxyUserLayer {
         String callId = inviteMessage.getCallId();
         System.out.println("[PROXY] onInviteReceived from=" + fromName + " to=" + toName + " callId=" + callId + " usersRegistered=" + registeredUsers.keySet() + " loose=" + looseRouting + " force=" + forceRecordRoute);
         
+        if (looseRouting) {
+            boolean isBusy = false;
+            for (Call c : activeCalls.values()) {
+                if (c.caller.user.equals(fromName) || c.callee.user.equals(fromName) ||
+                    c.caller.user.equals(toName) || c.callee.user.equals(toName)) {
+                    isBusy = true;
+                    break;
+                }
+            }
+            if (isBusy) {
+                 System.out.println("User is busy, and loose routing is active. Sending 503.");
+                 // Find origin address/port to send response
+                 ArrayList<String> vias = inviteMessage.getVias();
+                 String origin = vias.get(0);
+                 String[] originParts = origin.split(":");
+                 String originAddress = originParts[0];
+                 int originPort = Integer.parseInt(originParts[1]);
+                 
+                 SIPMessage su = inviteMessage.createServiceUnavailableResponse();
+                 transactionLayer.sendResponse(su, originAddress, originPort);
+                 return;
+            }
+        }
+        
         // Servlet Logic
         String servletClassName = userServlets.get(toName);
         if (servletClassName == null) {

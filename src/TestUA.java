@@ -72,6 +72,7 @@ public class TestUA {
         failures += runTest("Proxy 100 Trying", TestUA::test100Trying);
         failures += runTest("Call-ID Uniqueness", TestUA::testCallIdUniqueness);
         failures += runTest("Call Redirection", TestUA::testRedirection);
+        failures += runTest("Busy Call Blocking", TestUA::testBusyCallBlocking);
         
         System.out.println("==========================================");
         if (failures > 0) {
@@ -233,7 +234,7 @@ public class TestUA {
         charlie.enableDebug();
         charlie.start();
         
-        Thread.sleep(3000); 
+        Thread.sleep(1000); 
         
         alice.sendInput("INVITE Bob");
         Thread.sleep(500); // Bob accepts
@@ -253,7 +254,7 @@ public class TestUA {
         Thread.sleep(500);
         
         String charlieOutput = charlie.getOutput();
-        if (!charlieOutput.contains("busy")) {
+        if (!charlieOutput.contains("Busy")) {
              System.out.println("___ ALICE LOG ___");
              System.out.println(alice.getOutput());
              System.out.println("___ BOB LOG ___");
@@ -784,7 +785,7 @@ public class TestUA {
         }
 
         // Mario calls Alice
-        // Since it is NOT 10:00-11:00, this should be BLOCKED by Servlet (403).
+        // Since it is NOT 10:00-11:00, this should be BLOCKED by Servlet (503).
         // Mario should receive 503 Service Unavailable.
         System.out.println("Mario calling Alice (expecting BLOCK)...");
         mario.sendInput("INVITE alice");
@@ -794,7 +795,7 @@ public class TestUA {
         String proxyOut = proxy.getOutput();
 
         // UaUserLayer prints "Could not contact: ... (service unavailable)." on 503/ServiceUnavailable
-        if (!marioOut.contains("(service unavailable)")) {
+        if (!marioOut.contains("Service Unavailable")) {
              System.out.println("___ MARIO LOG ___");
              System.out.println(marioOut);
             throw new RuntimeException("Mario did not receive 503 Service Unavailable as expected.");
@@ -891,18 +892,24 @@ public class TestUA {
 
     private static void test100Trying() throws Exception {
         int proxyPort = nextPort();
-        int uaPort = nextPort();
+        int alicePort = nextPort();
+        int bobPort = nextPort();
         
         SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort));
         proxy.start();
         Thread.sleep(500);
         
-        SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(uaPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(alicePort), "127.0.0.1", String.valueOf(proxyPort), "3000");
         alice.enableDebug();
         alice.start();
         Thread.sleep(1000);
+
+        SIPProcess bob = new SIPProcess("Bob", "UA", BOB_URI, String.valueOf(bobPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        bob.enableDebug();
+        bob.start();
+        Thread.sleep(1000);
         
-        // Alice sends INVITE to anyone
+        // Alice sends INVITE to bob
         alice.sendInput("INVITE " + BOB_URI);
         Thread.sleep(1000);
         
@@ -911,6 +918,8 @@ public class TestUA {
         if (!log.contains("100 Trying")) {
              System.out.println("___ ALICE LOG ___");
              System.out.println(log);
+             System.out.println("___ BOB LOG ___");
+             System.out.println(bob.getOutput());
             throw new RuntimeException("Alice did not receive 100 Trying.");
         }
     }
@@ -994,6 +1003,52 @@ public class TestUA {
              System.out.println("___ PROXY LOG ___");
              System.out.println(proxy.getOutput());
              throw new RuntimeException("Charlie did not receive redirected INVITE.");
+        }
+    }
+
+    private static void testBusyCallBlocking() throws Exception {
+        int proxyPort = nextPort();
+        int alicePort = nextPort(); // A
+        int bobPort = nextPort();   // B
+        int charliePort = nextPort(); // C
+        
+        // Start Proxy with Loose Routing ENABLED (2nd arg "true")
+        SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort), "true");
+        proxy.start();
+        
+        SIPProcess alice = new SIPProcess("Alice", "UA", ALICE_URI, String.valueOf(alicePort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        alice.enableDebug();
+        alice.start();
+
+        SIPProcess bob = new SIPProcess("Bob", "UA", BOB_URI, String.valueOf(bobPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        bob.enableDebug();
+        bob.start();
+        
+        SIPProcess charlie = new SIPProcess("Charlie", "UA", CHARLIE_URI, String.valueOf(charliePort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        charlie.enableDebug();
+        charlie.start();
+        
+        Thread.sleep(2000);
+        
+        // Establish call A -> B
+        alice.sendInput("INVITE " + BOB_URI);
+        Thread.sleep(3000);
+        String aliceLog = alice.getOutput();
+        if (!aliceLog.contains("Received OK response")) {
+            throw new RuntimeException("Alice did not receive 200 OK (Call failed). Output:\n" + aliceLog);
+        }
+
+        // C tries to call A (should fail with 503 from Proxy because A is busy)
+        charlie.sendInput("INVITE " + ALICE_URI);
+        Thread.sleep(1000);
+        
+        String charlieLog = charlie.getOutput();
+        if (!charlieLog.contains("503 Service Unavailable")) {
+            System.out.println("___ CHARLIE LOG (Expect 503) ___");
+            System.out.println(charlieLog);
+            System.out.println("___ PROXY LOG ___");
+            System.out.println(proxy.getOutput());
+            throw new RuntimeException("Charlie did not receive 503 Service Unavailable when calling busy Alice/Bob.");
         }
     }
 }

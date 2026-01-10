@@ -287,12 +287,12 @@ public class UaUserLayer {
     }
 
     public void onInviteBusyHereResponse(BusyHereMessage sipMessage) {
-        System.err.println("Could not contact: " + sipMessage.getToName() + " (busy).");
-        stopVitextClient();
+         System.err.println("Could not contact: " + sipMessage.getToName() + " (486 Busy Here).");
+         stopVitextClient();
     }
 
     public void onInviteServiceUnavailableResponse(ServiceUnavailableMessage sipMessage) {
-        System.err.println("Could not contact: " + sipMessage.getToName() + " (service unavailable).");
+        System.err.println("Could not contact: " + sipMessage.getToName() + " (503 Service Unavailable).");
         stopVitextClient();
     }
 
