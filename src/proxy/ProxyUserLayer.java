@@ -65,7 +65,7 @@ public class ProxyUserLayer {
     private final ProxyTransactionLayer transactionLayer;
     private final Map<String, Registration> registeredUsers = new HashMap<>(); // To store registered users by their fromName without duplicates
     
-    private Set<String> allowedUsers = new HashSet<>(Set.of("alice", "bob", "mario", "boss", "charlie"));
+    private Set<String> allowedUsers = new HashSet<>(Set.of("alice", "bob", "mario", "boss", "charlie", "u1", "u2"));
 
     private class Call {
         Registration caller;

@@ -68,6 +68,7 @@ public class TestUA {
         failures += runTest("Loose Routing (Record-Route/Route)", TestUA::testLooseRouting);
         failures += runTest("Servlet Blocking (403->503)", TestUA::testServletBlocking);
         failures += runTest("Juana Call (No Servlet)", TestUA::testJuanaCall);
+        failures += runTest("Video Call Port 49172", TestUA::testVideoCallPort49172);
         
         System.out.println("==========================================");
         if (failures > 0) {
@@ -667,6 +668,7 @@ public class TestUA {
         public void start() throws IOException {
             List<String> command = new ArrayList<>();
             command.add(javaBin);
+
             if (debug || mainClass.equals("UA") || mainClass.equals("Proxy") || name.contains("UA")) { 
                  command.add("-Ddebug=" + debug); 
                  command.add("-DtestMode=true"); 
@@ -674,7 +676,26 @@ public class TestUA {
             command.add("-cp");
             command.add(CLASSPATH);
             command.add(mainClass);
-            for (String arg : args) command.add(arg);
+
+            List<String> finalArgs = new ArrayList<>();
+            for(String s : args) finalArgs.add(s);
+
+            if (mainClass.equals("UA")) {
+                if (finalArgs.size() == 5) {
+                    finalArgs.add(4, String.valueOf(debug));
+                }
+            } else if (mainClass.equals("Proxy")) {
+                if (finalArgs.size() == 1) {
+                    finalArgs.add("false"); // loose
+                    finalArgs.add(String.valueOf(debug)); // debug
+                }
+
+                else if (finalArgs.size() == 3) {
+                    finalArgs.add(2, String.valueOf(debug));
+                }
+            }
+            
+            command.addAll(finalArgs);
 
             // Use ProcessBuilder to verify current directory
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -800,9 +821,9 @@ public class TestUA {
         juana.enableDebug();
         juana.start();
         Thread.sleep(1000); 
-
+        
         if (!juana.getOutput().contains("Received response for REGISTER")) {
-             throw new RuntimeException("Juana failed to register. Output:\n" + juana.getOutput());
+             throw new RuntimeException("Juana failed to register (ensure users.xml is loaded). Output:\n" + juana.getOutput());
         }
 
         // Alice registers
@@ -817,7 +838,7 @@ public class TestUA {
 
         System.out.println("Alice calling Juana (expecting SUCCESS + Vitext)...");
         alice.sendInput("INVITE juana"); 
-
+        
         Thread.sleep(3000);
 
         String aliceOut = alice.getOutput();
@@ -828,6 +849,40 @@ public class TestUA {
              System.out.println("___ PROXY LOG ___");
              System.out.println(proxy.getOutput());
             throw new RuntimeException("Alice did not receive 200 OK (Call failed).");
+        }
+    }
+
+    private static void testVideoCallPort49172() throws Exception {
+        int proxyPort = nextPort();
+        int u1ListenPort = 49171; // Video -> 49172
+        int u2ListenPort = nextPort();
+        
+        SIPProcess proxy = new SIPProcess("Proxy", "Proxy", String.valueOf(proxyPort));
+        proxy.start();
+        Thread.sleep(500);
+
+        SIPProcess u1 = new SIPProcess("U1", "UA", "sip:U1@domain.com", String.valueOf(u1ListenPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        u1.enableDebug();
+        u1.start();
+
+        SIPProcess u2 = new SIPProcess("U2", "UA", "sip:U2@domain.com", String.valueOf(u2ListenPort), "127.0.0.1", String.valueOf(proxyPort), "3000");
+        u2.enableDebug();
+        u2.start();
+        
+        Thread.sleep(2000);
+        
+        u2.sendInput("INVITE U1");
+        Thread.sleep(3000);
+        
+        String u2Log = u2.getOutput();
+        boolean found = u2Log.contains("m=video 49172") || u2Log.contains("9172");
+        
+        if (!found) {
+             System.out.println("___ U2 LOG ___");
+             System.out.println(u2Log);
+             System.out.println("___ U1 LOG ___");
+             System.out.println(u1.getOutput());
+             throw new RuntimeException("Could not find video port 49172 in the negotiation (checked U2 logs).");
         }
     }
 }
